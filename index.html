@@ -101,7 +101,7 @@ select:disabled{opacity:.6}
 .rname{font-family:var(--font-display);font-weight:700;font-size:20px;line-height:1.2}
 .rnote{margin:2px 0 8px;font-size:12.5px;color:var(--muted)}
 .scenebox svg{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;margin-top:6px;font-family:var(--font-body)}
-.rmap{display:block;width:100%;max-width:360px;margin:6px auto 4px}
+.rmap{display:block;width:100%;max-width:260px;margin:6px auto 4px}
 .rmap .st{fill:#bfe6f8;stroke:#fff;stroke-width:.8;stroke-linejoin:round}
 .rmap .st.hi{fill:#d9822b;stroke:#fff}
 .rmap .st:hover{stroke:#333;stroke-width:1.2}
@@ -220,11 +220,7 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
       <svg id="r-map" class="rmap" viewBox="0 0 560 640" role="img" aria-label="Map of India with the states for the selected soil class highlighted"></svg>
       <p class="rnote">Highlighted: states listed for this class. Map shows India with the full Jammu and Kashmir and Ladakh territory (Survey of India depiction; boundary data from DataMeet).</p>
       <ul class="rlist" id="r-list"></ul>
-      <details>
-        <summary>All 12 classes</summary>
-        <div class="tblwrap" style="margin-top:8px"><table id="r-table"></table></div>
-      </details>
-      <p class="note">Indicative only. States have several textures. These assignments follow the broad soil groups (alluvial, black, red, laterite, arid) and typical surface texture, not a measured class map. Crops in brackets are the major crops grown on that soil. For comparison, an NBSS&amp;LUP (ICAR) regional study of Tamil Nadu found sandy textures (sandy loam, loamy sand) dominant, followed by clayey and loamy soils (<a href="https://www.fao.org/fileadmin/user_upload/GSP/GSID24/Posters/Theme_2/GSP-DSM-Surface_texture-Dr._Kalaiselvi._B.pdf" target="_blank" rel="noopener">Kalaiselvi et al.</a>). NBSS&amp;LUP has also announced a national soil texture map (<a href="https://www.drishtiias.com/state-pcs-current-affairs/nbss-lup-develops-indias-first-soil-texture-map" target="_blank" rel="noopener">report</a>), which would give hectare-level classes.</p>
+      <p class="note">Indicative only. See the regional notes at the bottom of the page.</p>
     </div>
     <div class="cip">
       <h2>Cone index with depth</h2>
@@ -392,6 +388,14 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
   </main>
 </div>
 <footer>
+<div class="cite region" id="regions-notes">
+  <h2>Indian regions by USDA class: all 12 classes and notes</h2>
+<details>
+    <summary>All 12 classes</summary>
+    <div class="tblwrap" style="margin-top:8px"><table id="r-table"></table></div>
+  </details>
+<p class="note">Indicative only. States have several textures. These assignments follow the broad soil groups (alluvial, black, red, laterite, arid) and typical surface texture, not a measured class map. Crops in brackets are the major crops grown on that soil. For comparison, an NBSS&amp;LUP (ICAR) regional study of Tamil Nadu found sandy textures (sandy loam, loamy sand) dominant, followed by clayey and loamy soils (<a href="https://www.fao.org/fileadmin/user_upload/GSP/GSID24/Posters/Theme_2/GSP-DSM-Surface_texture-Dr._Kalaiselvi._B.pdf" target="_blank" rel="noopener">Kalaiselvi et al.</a>). NBSS&amp;LUP has also announced a national soil texture map (<a href="https://www.drishtiias.com/state-pcs-current-affairs/nbss-lup-develops-indias-first-soil-texture-map" target="_blank" rel="noopener">report</a>), which would give hectare-level classes.</p>
+</div>
 <div class="cite">
   <h2>How to cite</h2>
   <p id="citetext">Soni, P. (2026). Tractor–Soil Interaction Simulator [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23560841</p>
