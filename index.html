@@ -3,12 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Interactive tractor wheel traction, sinkage and subsoil stress model driven by USDA soil texture, Atterberg limits and cone index.">
 <style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Tractor–Soil Interaction Simulator</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: full-width soil panel (USDA triangle beside texture inputs), then sticky tractor controls beside readouts and three linked charts. */
+/* Layout: tractor configuration, then soil panel (USDA triangle beside texture inputs), then sticky operating controls beside single-wheel and whole-tractor results. */
 :root{
   --bg:#eef2f6; --surface:#ffffff; --fg:#13202c; --muted:#566a7c; --line:#d3dbe3; --grid:#e3e9ef;
   --accent:#1a62c9; --accent-soft:#dbe8fb;
@@ -52,20 +51,30 @@ button,select{font:inherit;color:var(--fg)}
 .chip:hover{border-color:var(--accent);color:var(--accent)}
 button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg.two{grid-template-columns:repeat(2,1fr)}
 .seg input{position:absolute;opacity:0;pointer-events:none}
 .seg label{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 4px;font-size:13px;cursor:pointer;border-left:1px solid var(--line);text-align:center}
 .seg label:first-of-type{border-left:0}
 .seg input:checked+label{background:var(--accent-soft);font-weight:600}
+.seg input:disabled+label{opacity:.4;cursor:not-allowed}
 .seg input:focus-visible+label{outline:2px solid var(--accent);outline-offset:-2px}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
-.field{display:grid;gap:4px}
+.field{display:grid;gap:4px;align-content:start;min-width:0}
 .field .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .field label{font-size:13px}
 .field output{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums}
 .field small{color:var(--muted);font-size:11.5px}
 input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
 select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+select:disabled{opacity:.6}
 .reset{align-self:flex-start;background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font-size:13px;text-decoration:underline}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
+.chk input{margin-top:3px;accent-color:var(--accent)}
+
+/* tractor panel */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px 22px}
+.statics{margin:12px 0 0;font-size:12.5px;color:var(--muted)}
+.drivenote{min-height:2.6em}
 
 /* soil panel */
 .soil{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:20px 28px;align-items:start}
@@ -87,8 +96,6 @@ select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px
 .attnote{margin:0;font-size:12.5px;color:var(--muted)}
 .cip{display:grid;gap:8px;margin-top:16px}
 .cip h2{margin:0}
-.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
-.chk input{margin-top:3px;accent-color:var(--accent)}
 .ciin{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 @media (max-width:560px){.ciin{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .ciin label{display:grid;gap:2px;font-size:11.5px;color:var(--muted)}
@@ -96,6 +103,10 @@ select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px
 .cibtns{display:flex;gap:16px}
 
 .main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.sechead{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-bottom:-6px}
+.sechead h2{margin:0}
+.tag{display:inline-block;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;border-radius:4px;padding:2px 9px}
+.secnote{margin:0;font-size:12.5px;color:var(--muted)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .kpi{background:var(--surface);padding:10px 12px;min-width:0}
 .kpi .l{font-size:11.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
@@ -135,8 +146,40 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
 <div class="wrap">
 <header>
   <h1>Tractor–Soil Interaction Simulator</h1>
-  <p>Start from soil texture: set sand, silt and clay, or click the USDA triangle. Then vary tractor load, inflation pressure, moisture and slip to see traction, sinkage and subsoil stress respond.</p>
+  <p>Choose the tractor type and tyres, set the soil from sand, silt and clay, then vary moisture, inflation and slip. Results are shown for a single driving wheel and for the whole tractor.</p>
 </header>
+
+<section class="panel" aria-label="Tractor configuration">
+  <h2>Tractor configuration</h2>
+  <div class="tgrid">
+    <div class="field">
+      <label>Drive type</label>
+      <div class="seg" role="radiogroup" aria-label="Drive type">
+        <input type="radio" name="drive" id="drive-2wd" value="2wd" checked><label for="drive-2wd">2WD</label>
+        <input type="radio" name="drive" id="drive-mfwd" value="mfwd"><label for="drive-mfwd">MFWD</label>
+        <input type="radio" name="drive" id="drive-4wd" value="4wd"><label for="drive-4wd">4WD</label>
+      </div>
+      <small class="drivenote" id="drive-note"></small>
+    </div>
+    <div class="field"><label for="rearTyre">Rear tyre (driven)</label><select id="rearTyre"></select><small>Typical Indian tractor sizes, bias ply</small></div>
+    <div class="field"><label for="frontTyre" id="front-label">Front tyre</label><select id="frontTyre"></select><small>Typical sizes for this drive type</small></div>
+    <div class="field"><div class="row"><label for="mass">Tractor mass with ballast</label><output id="o-mass"></output></div>
+      <input type="range" id="mass" min="600" max="6000" step="50" value="1900"></div>
+    <div class="field"><div class="row"><label for="fr">Static weight on rear axle</label><output id="o-fr"></output></div>
+      <input type="range" id="fr" min="35" max="80" step="1" value="65"></div>
+    <div class="field"><div class="row"><label for="wb">Wheelbase</label><output id="o-wb"></output></div>
+      <input type="range" id="wb" min="1.4" max="3.2" step="0.05" value="1.95"></div>
+    <div class="field"><div class="row"><label for="hd">Drawbar hitch height</label><output id="o-hd"></output></div>
+      <input type="range" id="hd" min="0.2" max="0.8" step="0.01" value="0.45"></div>
+    <div class="field"><div class="row"><label for="inflR">Rear inflation pressure</label><output id="o-inflR"></output></div>
+      <input type="range" id="inflR" min="40" max="240" step="5" value="100"></div>
+    <div class="field"><div class="row"><label for="inflF">Front inflation pressure</label><output id="o-inflF"></output></div>
+      <input type="range" id="inflF" min="40" max="300" step="5" value="200"></div>
+    <div class="field" id="leadwrap" hidden><div class="row"><label for="lead">Front-wheel lead</label><output id="o-lead"></output></div>
+      <input type="range" id="lead" min="0" max="6" step="0.5" value="2"><small>Front theoretical speed above rear</small></div>
+  </div>
+  <p class="statics" id="statics"></p>
+</section>
 
 <section class="panel soil" aria-label="Soil texture">
   <div>
@@ -189,7 +232,7 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
 </section>
 
 <div class="app">
-  <aside class="panel controls" aria-label="Tractor inputs">
+  <aside class="panel controls" aria-label="Operating inputs">
     <div>
       <h2>Operating scenarios (optional)</h2>
       <div class="chips" id="scen">
@@ -198,34 +241,50 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
         <button class="chip" data-s="seed">Tilled seedbed</button>
         <button class="chip" data-s="soft">Soft ground, low pressure</button>
       </div>
-      <small style="display:block;margin-top:6px;color:var(--muted);font-size:11.5px">Keeps your soil texture. Sets surface condition, moisture and tractor settings.</small>
+      <small style="display:block;margin-top:6px;color:var(--muted);font-size:11.5px">Keeps your tractor and soil texture. Sets surface condition, moisture, slip, speed and rear inflation.</small>
     </div>
 
-    <div class="field"><div class="row"><label for="load">Wheel load, W</label><output id="o-load"></output></div>
-      <input type="range" id="load" min="5" max="40" step="0.5" value="20"><small>Dynamic load on one driven tyre</small></div>
-
-    <div class="field"><div class="row"><label for="infl">Inflation pressure, p<sub>i</sub></label><output id="o-infl"></output></div>
-      <input type="range" id="infl" min="40" max="240" step="5" value="100"></div>
-
-    <div class="field"><div class="row"><label for="slip">Wheel slip, s</label><output id="o-slip"></output></div>
-      <input type="range" id="slip" min="0" max="30" step="0.5" value="10"></div>
+    <div class="field"><div class="row"><label for="slip">Rear wheel slip, s<sub>r</sub></label><output id="o-slip"></output></div>
+      <input type="range" id="slip" min="0" max="30" step="0.5" value="10"><small>Front slip follows from lead on MFWD</small></div>
 
     <div class="field"><div class="row"><label for="speed">Theoretical speed, v<sub>t</sub></label><output id="o-speed"></output></div>
       <input type="range" id="speed" min="2" max="12" step="0.5" value="7"></div>
 
-    <div class="field"><label for="tyre">Driven tyre</label>
-      <select id="tyre">
-        <option value="0">420/85R30 (b 0.42 m, d 1.52 m)</option>
-        <option value="1" selected>520/85R38 (b 0.52 m, d 1.83 m)</option>
-        <option value="2">650/65R38 (b 0.65 m, d 1.80 m)</option>
-      </select></div>
+    <div>
+      <h2>Single wheel to analyse</h2>
+      <div class="seg two" role="radiogroup" aria-label="Wheel to analyse">
+        <input type="radio" name="wheel" id="wheel-rear" value="rear" checked><label for="wheel-rear">Rear</label>
+        <input type="radio" name="wheel" id="wheel-front" value="front"><label for="wheel-front">Front (driven)</label>
+      </div>
+    </div>
+
+    <div class="field"><div class="row"><label for="load">Load on this wheel, W</label><output id="o-load"></output></div>
+      <input type="range" id="load" min="2" max="40" step="0.1" value="6">
+      <label class="chk" for="autoload"><input type="checkbox" id="autoload" checked><span>Use dynamic load from the tractor</span></label></div>
     <button class="reset" id="reset" type="button">Reset to defaults</button>
   </aside>
 
   <main class="main">
+    <div class="sechead"><span class="tag">Single driving wheel</span><h2 id="sw-title"></h2></div>
+    <p class="secnote">The numbers and charts in this block describe one driving wheel only, not the whole tractor. The whole-tractor estimate is in the next block.</p>
     <section class="kpis" id="kpis" aria-live="polite"></section>
     <section class="advice" id="advice" aria-live="polite"></section>
 
+    <div class="sechead" style="margin-top:8px"><span class="tag">Whole tractor</span><h2 id="wt-title"></h2></div>
+    <p class="secnote">Estimated from the tractor configuration above, with dynamic weight transfer to the rear axle. Both axles work in the same soil.</p>
+    <section class="kpis" id="kpis2" aria-live="polite"></section>
+    <section class="advice" id="advice2" aria-live="polite"></section>
+    <section class="panel">
+      <div class="charthead"><h3>Whole tractor against rear-wheel slip</h3>
+        <div class="legend">
+          <span><i style="background:var(--gtr)"></i>Pull–weight ratio, DP / W</span>
+          <span><i style="background:var(--ntr)"></i>Tractive efficiency</span>
+        </div></div>
+      <svg id="c5" viewBox="0 0 640 300" role="img" aria-label="Whole-tractor pull-weight ratio and tractive efficiency versus rear wheel slip"></svg>
+      <p class="note">Drag on this chart to set slip.</p>
+    </section>
+
+    <div class="sechead" style="margin-top:8px"><span class="tag">Single driving wheel</span><h2>Detailed charts</h2></div>
     <section class="panel">
       <div class="charthead"><h3>Tractive efficiency against slip, <span id="c1name"></span></h3>
         <div class="legend">
@@ -235,11 +294,11 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
           <span><svg width="14" height="14" viewBox="0 0 14 14" style="width:14px"><circle cx="7" cy="7" r="6" fill="var(--red)"/></svg>Optimum slip</span>
         </div></div>
       <svg id="c1" viewBox="0 0 640 340" role="img" aria-label="Tractive efficiency versus wheel slip for three surface conditions"></svg>
-      <p class="note">Drag on this chart to set slip. Shaded zone: left of the optimum, power is limited by motion resistance. Right of it, power is lost to wheel slip.</p>
+      <p class="note">Single wheel at the load shown above. Drag on this chart to set slip. Shaded zone: left of the optimum, power is limited by motion resistance. Right of it, power is lost to wheel slip.</p>
     </section>
 
     <section class="panel">
-      <div class="charthead"><h3>Traction ratios, selected condition</h3>
+      <div class="charthead"><h3>Traction ratios, single wheel, selected condition</h3>
         <div class="legend">
           <span><i style="background:var(--gtr)"></i>Gross traction ratio</span>
           <span><i style="background:var(--mrr)"></i>Motion resistance ratio</span>
@@ -250,12 +309,12 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
 
     <div class="cols">
       <section class="panel">
-        <div class="charthead"><h3>Subsoil stress with depth</h3></div>
+        <div class="charthead"><h3>Subsoil stress, single wheel</h3></div>
         <svg id="c3" viewBox="0 0 320 320" role="img" aria-label="Vertical stress under the wheel versus depth"></svg>
         <p class="note" id="c3note"></p>
       </section>
       <section class="panel">
-        <div class="charthead"><h3>Rut depth</h3></div>
+        <div class="charthead"><h3>Rut depth, single wheel</h3></div>
         <svg id="c4" viewBox="0 0 320 150" role="img" aria-label="Rut depth schematic"></svg>
         <p class="note" id="c4note"></p>
       </section>
@@ -272,14 +331,22 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
           <div>z = [ p<sub>c</sub> / (k<sub>c</sub>/b + k<sub>φ</sub>) ]<sup>1/n</sup> · (1 + 4s)</div>
           <div>σ<sub>z</sub> = p<sub>c</sub> [ 1 − (1 / (1 + a²/z²))<sup>ν/2</sup> ]</div>
         </div>
-        <p class="note">Brixius wheel-numeric traction model (basis of ASABE D497 / EP496 tractive performance prediction), Bekker pressure–sinkage relation and a Fröhlich stress-concentration form for subsoil stress. Tyre deflection δ is estimated from load and inflation pressure, contact length L = 2√(dδ), contact area A = πbL/4, mean contact pressure p<sub>c</sub> = W/A, and a = √(A/π).</p>
+        <p class="note">Single wheel: Brixius wheel-numeric traction model (basis of ASABE D497 / EP496 tractive performance prediction), Bekker pressure–sinkage relation and a Fröhlich stress-concentration form for subsoil stress. Tyre deflection δ is estimated from load and inflation pressure, contact length L = 2√(dδ), contact area A = πbL/4, mean contact pressure p<sub>c</sub> = W/A, and a = √(A/π). Tyre width b is the nominal section width, and overall diameter is d = rim diameter + 2 × 0.85 × section width (0.9 for narrow front tyres), so geometry is approximate.</p>
+        <div class="eq">
+          <div>W<sub>r</sub> = W<sub>r0</sub> + DP·h<sub>d</sub>/L &nbsp;&nbsp; W<sub>f</sub> = W<sub>f0</sub> − DP·h<sub>d</sub>/L</div>
+          <div>2WD: DP = W<sub>r</sub>·NTR<sub>r</sub> − W<sub>f</sub>·MRR<sub>f</sub>(s = 0)</div>
+          <div>MFWD, 4WD: DP = W<sub>r</sub>·NTR<sub>r</sub> + W<sub>f</sub>·NTR<sub>f</sub></div>
+          <div>s<sub>f</sub> = 1 − (1 − s<sub>r</sub>) / (1 + lead)</div>
+          <div>η = DP·v<sub>a</sub> / Σ(GTR·W·v<sub>t</sub>) &nbsp;&nbsp; v<sub>a</sub> = v<sub>t</sub>(1 − s<sub>r</sub>)</div>
+        </div>
+        <p class="note">Whole tractor: static axle loads come from the tractor mass and rear weight share, and the pull shifts load rearward by DP·h<sub>d</sub>/L (the drawbar pull is taken as horizontal, and tractor rolling-moment terms are ignored). On 2WD the front wheels roll freely and only add motion resistance. On MFWD the front wheels drive with a positive lead, so they slip more than the rear wheels. The 4WD option uses equal tyres on both axles with no lead. Front wheels are assumed to run in undisturbed soil, so rear wheels running in front-wheel ruts are not modelled. Front tyre options and default masses are typical values, not manufacturer data.</p>
         <p class="note">Texture to parameters: cone index at the reference moisture rises with clay and silt, CI<sub>ref</sub> = 900 + 15·clay + 4·silt (kPa, firm surface). The Bekker exponent falls and k<sub>c</sub> rises with clay, and moisture lowers CI exponentially at a rate that grows with clay and silt. Tilled and loose surfaces carry 0.5 and 0.28 of the firm cone index. Reference moisture (near field capacity) is 6 + 0.35·clay + 0.1·silt in % d.b.</p>
         <p class="note">Atterberg limits are estimated from texture: PI = 0.65·clay + 0.06·silt − 2 (below 4 the soil is treated as non-plastic), PL = 12 + 0.22·clay + 0.10·silt, LL = PL + PI, SL = 0.55·PL, all in % d.b. Liquidity index LI = (w − PL)/PI. The limits classify the soil state and drive the warnings. They also scale the cone index: CI = CI<sub>ref</sub> · f<sub>m</sub> · f<sub>a</sub>, where f<sub>m</sub> = exp[−β(w − w<sub>FC</sub>)] limited to 0.4–2.0, and f<sub>a</sub> = 1 up to the plastic limit, falling linearly to 0.3 at the liquid limit (LI = 1) and decaying toward zero above it. Non-plastic soils keep f<sub>a</sub> = 1. A measured cone-index profile replaces this estimate: its mean over 0–150 mm is used as CI for the selected surface condition, and the other two conditions are scaled by their firm, tilled and loose ratios.</p>
       </details>
     </section>
   </main>
 </div>
-<footer>Illustrative teaching model. The texture-to-parameter relations are simple correlations built from representative terramechanics values (Wong, Terramechanics), so use measured cone index and Bekker parameters for design or publication.</footer>
+<footer>Illustrative teaching model. The texture-to-parameter relations are simple correlations built from representative terramechanics values (Wong, Terramechanics), so use measured cone index and Bekker parameters for design or publication. The whole-tractor block is a simplified estimate, not a prediction for a specific tractor model.</footer>
 </div>
 
 <script>
@@ -289,7 +356,6 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
   var clamp = function(x,a,b){return Math.max(a,Math.min(b,x))};
 
   /* ---------- USDA texture ---------- */
-  // Each class: polygon vertices as [sand, clay] (%), plus a typical composition [sand, silt, clay].
   var CLASSES = [
     {n:"Sand",            a:"S",    t:[92,5,3],    p:[[100,0],[85,0],[90,10]]},
     {n:"Loamy sand",      a:"LS",   t:[82,12,6],   p:[[85,0],[70,0],[85,15],[90,10]]},
@@ -323,6 +389,38 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     return 3;
   }
 
+  /* ---------- tyres (typical Indian tractor sizes, bias ply) ---------- */
+  function mk(label, w, rim, ar, id){
+    return {label:label, id:id||label, w:w, rim:rim, ar:ar, b:w*0.0254, d:(rim+2*ar*w)*0.0254};
+  }
+  var REAR_GROUPS = [
+    {g:"Mini / small tractor", t:[mk("8.00-18",8.0,18,.85), mk("8.3-20",8.3,20,.85), mk("9.5-20",9.5,20,.85)]},
+    {g:"Compact tractor", t:[mk("8.3-24",8.3,24,.85), mk("9.5-24",9.5,24,.85), mk("11.2-24",11.2,24,.85), mk("12.4-24",12.4,24,.85), mk("14.9-24",14.9,24,.85)]},
+    {g:"Standard tractor", t:[mk("11.2-28",11.2,28,.85), mk("12.4-28",12.4,28,.85), mk("13.6-28",13.6,28,.85), mk("14.9-28",14.9,28,.85), mk("15.9-28",15.9,28,.85), mk("16.9-28",16.9,28,.85), mk("17.9-28",17.9,28,.85)]},
+    {g:"Large tractor", t:[mk("16.9-30",16.9,30,.85), mk("18.4-30",18.4,30,.85)]},
+    {g:"Specialized agricultural tractor", t:[mk("8.3-32",8.3,32,.85), mk("12.4-32",12.4,32,.85), mk("13.6-38",13.6,38,.85), mk("15.5-38",15.5,38,.85), mk("16.9-38",16.9,38,.85)]}
+  ];
+  var FRONT_2WD = [mk("5.00-15",5.0,15,.9,"2wd|5.00-15"), mk("6.00-16",6.0,16,.9,"2wd|6.00-16"), mk("6.50-16",6.5,16,.9,"2wd|6.50-16"), mk("7.50-16",7.5,16,.9,"2wd|7.50-16"), mk("7.50-18",7.5,18,.9,"2wd|7.50-18")];
+  var FRONT_MFWD = [mk("7.50-16",7.5,16,.85,"mfwd|7.50-16"), mk("8.3-20",8.3,20,.85,"mfwd|8.3-20"), mk("8.3-24",8.3,24,.85,"mfwd|8.3-24"), mk("9.5-24",9.5,24,.85,"mfwd|9.5-24"), mk("11.2-24",11.2,24,.85,"mfwd|11.2-24"), mk("12.4-24",12.4,24,.85,"mfwd|12.4-24"), mk("13.6-24",13.6,24,.85,"mfwd|13.6-24")];
+  var ALL_TYRES = [];
+  REAR_GROUPS.forEach(function(g){ ALL_TYRES = ALL_TYRES.concat(g.t); });
+  ALL_TYRES = ALL_TYRES.concat(FRONT_2WD, FRONT_MFWD);
+  function tyreByKey(k){
+    for (var i=0;i<ALL_TYRES.length;i++) if (ALL_TYRES[i].id===k) return ALL_TYRES[i];
+    return ALL_TYRES[0];
+  }
+  var optText = function(t){ return t.label+" · b "+Math.round(t.b*1000)+" mm · d "+fmt(t.d,2)+" m"; };
+  var optHtml = function(t){ return '<option value="'+t.id+'">'+optText(t)+'</option>'; };
+
+  var DRIVES = {
+    "2wd": {mass:1900, fr:65, wb:1.95, lead:0, inflF:200, frontTyre:"2wd|6.00-16",
+            note:"Rear wheels drive. Front wheels roll freely and add motion resistance."},
+    "mfwd":{mass:2300, fr:58, wb:2.0,  lead:2, inflF:150, frontTyre:"mfwd|9.5-24",
+            note:"Rear wheels drive and the smaller front wheels assist, with a positive lead."},
+    "4wd": {mass:2600, fr:50, wb:2.1,  lead:0, inflF:100, frontTyre:"same",
+            note:"All four wheels drive with equal tyres and no lead."}
+  };
+
   /* ---------- texture to soil parameters ---------- */
   var CONDS = {
     firm:  {name:"Firm",   color:"var(--firm)",  mult:1.0,  nu:4},
@@ -330,7 +428,7 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     loose: {name:"Loose",  color:"var(--sandy)", mult:0.28, nu:5}
   };
   function soilFor(S, ck){
-    var sa=S.sand, si=S.silt, cl=S.clay, c=CONDS[ck];
+    var si=S.silt, cl=S.clay, c=CONDS[ck];
     var CI0 = 900 + 15*cl + 4*si;
     var meas = measuredCI(S);
     return {
@@ -346,7 +444,6 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
       nu:c.nu
     };
   }
-  // Cone index in the 0-150 mm layer: measured profile if supplied, else texture/moisture/consistency estimate.
   function ciOf(soil, w){
     if (soil.CImeas!=null) return soil.CImeas;
     var fm = clamp(Math.exp(-soil.beta*(w - soil.wref)), 0.4, 2.0);
@@ -359,7 +456,7 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
   }
 
   /* ---------- measured cone index profile ---------- */
-  var CI_DEPTHS = [0,5,10,15,20,30,40,50]; // cm
+  var CI_DEPTHS = [0,5,10,15,20,30,40,50];
   var CI_IDS = CI_DEPTHS.map(function(d,i){return "ci"+i});
   function ciPoints(S){
     var pts=[];
@@ -388,50 +485,65 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     return e*(a + b*zcm/100);
   }
 
-  var TYRES = [
-    {b:0.42, d:1.52, ar:0.85},
-    {b:0.52, d:1.83, ar:0.85},
-    {b:0.65, d:1.80, ar:0.65}
-  ];
-  var DEFAULTS = {sand:40, silt:40, clay:20, cond:"firm", moist:16, load:20, infl:100, slip:10, speed:7, tyre:1};
-  // Scenarios keep the chosen texture. Moisture is set relative to that soil's field capacity and Atterberg limits.
+  var DEFAULTS = {drive:"2wd", rearTyre:"14.9-28", sand:40, silt:40, clay:20, cond:"firm", moist:16, slip:10, speed:7,
+                  inflR:100, wheel:"rear", autoload:true};
+  var NUM = ["sand","silt","clay","moist","load","slip","speed","mass","fr","wb","hd","lead","inflR","inflF"];
+
+  function readState(){
+    var S = {cond: document.querySelector('input[name="cond"]:checked').value,
+             drive: document.querySelector('input[name="drive"]:checked').value,
+             wheel: document.querySelector('input[name="wheel"]:checked').value};
+    NUM.forEach(function(k){ S[k] = +$(k).value; });
+    S.autoload = $("autoload").checked;
+    S.rearTyre = $("rearTyre").value; S.rear = tyreByKey(S.rearTyre);
+    S.frontTyre = S.drive==="4wd" ? S.rearTyre : $("frontTyre").value; S.front = tyreByKey(S.frontTyre);
+    if (S.drive==="4wd") S.inflF = S.inflR;
+    S.useCI = $("useci").checked;
+    S.ci = CI_IDS.map(function(id){ return parseFloat($(id).value); });
+    return S;
+  }
+  function applyDrive(d){
+    var D = DRIVES[d], fs = $("frontTyre");
+    if (d==="4wd"){ fs.innerHTML = '<option value="same">Same as rear tyre</option>'; fs.disabled = true; }
+    else {
+      fs.innerHTML = (d==="2wd"?FRONT_2WD:FRONT_MFWD).map(optHtml).join("");
+      fs.disabled = false; fs.value = D.frontTyre;
+    }
+    $("mass").value = D.mass; $("fr").value = D.fr; $("wb").value = D.wb; $("lead").value = D.lead; $("inflF").value = D.inflF;
+    $("inflF").disabled = d==="4wd";
+    $("leadwrap").hidden = d!=="mfwd";
+    $("wheel-front").disabled = d==="2wd";
+    if (d==="2wd") $("wheel-rear").checked = true;
+    $("drive-note").textContent = D.note;
+    $("front-label").textContent = d==="2wd" ? "Front tyre (free-rolling)" : (d==="mfwd" ? "Front tyre (driven)" : "Front tyre");
+  }
+  function writeState(s){
+    if (s.drive){ $("drive-"+s.drive).checked = true; applyDrive(s.drive); }
+    if (s.rearTyre) $("rearTyre").value = s.rearTyre;
+    if (s.cond) document.getElementById("cond-"+s.cond).checked = true;
+    if (s.wheel) document.getElementById("wheel-"+s.wheel).checked = true;
+    if (s.autoload!=null) $("autoload").checked = s.autoload;
+    NUM.forEach(function(k){ if (s[k]!=null) $(k).value = s[k]; });
+    $("useci").checked = false; $("ci-inputs").hidden = true;
+    update();
+  }
+  // Scenarios keep the chosen tractor and texture. Moisture is set relative to the soil's field capacity and Atterberg limits.
   var SCEN = {
-    dry:  {cond:"firm",  load:20, infl:100, slip:8,  speed:7, tyre:1, moist:function(w,a){return 0.75*w}},
-    wet:  {cond:"firm",  load:25, infl:120, slip:15, speed:5, tyre:1, moist:function(w,a){return a.np ? 1.8*w : a.PL+0.3*a.PI}},
-    seed: {cond:"tilled",load:20, infl:80,  slip:12, speed:7, tyre:1, moist:function(w,a){return 0.9*w}},
-    soft: {cond:"loose", load:18, infl:60,  slip:18, speed:6, tyre:0, moist:function(w,a){return 0.8*w}}
+    dry:  {cond:"firm",  slip:8,  speed:7, inflR:100, moist:function(w,a){return 0.75*w}},
+    wet:  {cond:"firm",  slip:15, speed:5, inflR:120, moist:function(w,a){return a.np ? 1.8*w : a.PL+0.3*a.PI}},
+    seed: {cond:"tilled",slip:12, speed:7, inflR:80,  moist:function(w,a){return 0.9*w}},
+    soft: {cond:"loose", slip:18, speed:6, inflR:60,  moist:function(w,a){return 0.8*w}}
   };
   function scenarioState(key){
     var S = readState(), sc = SCEN[key];
     var wfc = 6 + 0.35*S.clay + 0.1*S.silt;
     var m = clamp(Math.round(sc.moist(wfc, attOf(S))*2)/2, 3, 50);
-    return {sand:S.sand, silt:S.silt, clay:S.clay, cond:sc.cond, moist:m, load:sc.load, infl:sc.infl, slip:sc.slip, speed:sc.speed, tyre:sc.tyre};
-  }
-  var NUM = ["sand","silt","clay","moist","load","infl","slip","speed","tyre"];
-
-  function readState(){
-    var S = {cond: document.querySelector('input[name="cond"]:checked').value};
-    NUM.forEach(function(k){ S[k] = +$(k).value; });
-    S.useCI = $("useci").checked;
-    S.ci = CI_IDS.map(function(id){ return parseFloat($(id).value); });
-    return S;
-  }
-  function writeState(s){
-    document.getElementById("cond-"+s.cond).checked = true;
-    NUM.forEach(function(k){ $(k).value = s[k]; });
-    $("useci").checked = false; $("ci-inputs").hidden = true;
-    update();
-  }
-  function setComp(changed, v){
-    var keys = ["sand","silt","clay"], others = keys.filter(function(k){return k!==changed});
-    var a = +$(others[0]).value, b = +$(others[1]).value, rest = 100 - v;
-    if (a+b===0){ a = rest/2; b = rest/2; } else { var na = a/(a+b)*rest; b = rest - Math.round(na); a = Math.round(na); }
-    $(changed).value = v; $(others[0]).value = a; $(others[1]).value = b;
+    return {cond:sc.cond, moist:m, slip:sc.slip, speed:sc.speed, inflR:sc.inflR};
   }
 
   /* ---------- tractor / soil model ---------- */
   function tyreGeom(S){
-    var t = TYRES[S.tyre];
+    var t = S.tyreObj;
     var h = t.ar*t.b;
     var dh = clamp(0.15*(S.load/20)*Math.pow(100/S.infl,0.85), 0.04, 0.35);
     var delta = dh*h;
@@ -467,6 +579,46 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     var a = Math.sqrt(G.A/Math.PI);
     var nu = clamp(soil.nu - 0.08*(S.moist-soil.wref), 2.5, 6);
     return G.pc*(1 - Math.pow(1/(1+(a*a)/(z*z)), nu/2));
+  }
+
+  /* ---------- whole tractor ---------- */
+  function axle(soil,S,tyre,infl,Wwheel,sPct){
+    var s2 = {load:Math.max(0.05,Wwheel), infl:infl, tyreObj:tyre, moist:S.moist};
+    var G = tyreGeom(s2);
+    return {r:traction(soil,s2,G,sPct), G:G, load:s2.load};
+  }
+  function tractorSolve(S, soil, sPct){
+    var Wt = S.mass*9.81/1000, Wr0 = S.fr/100*Wt, Wf0 = Wt - Wr0;
+    var sR = sPct/100, lead = S.drive==="mfwd" ? S.lead/100 : 0;
+    var sFpct = (1 - (1-sR)/(1+lead))*100;
+    var frontDriven = S.drive!=="2wd";
+    var DP = 0, o = null;
+    for (var it=0; it<40; it++){
+      var dW = DP*S.hd/S.wb;
+      var Wr = Math.max(0.1, Wr0+dW), Wf = Math.max(0, Wf0-dW);
+      var rr = axle(soil,S,S.rear,S.inflR,Wr/2,sPct), ff, dpNew;
+      if (frontDriven){ ff = axle(soil,S,S.front,S.inflF,Wf/2,sFpct); dpNew = Wr*rr.r.NTR + Wf*ff.r.NTR; }
+      else { ff = axle(soil,S,S.front,S.inflF,Wf/2,0); dpNew = Wr*rr.r.NTR - Wf*ff.r.MRR; }
+      o = {Wt:Wt, Wr0:Wr0, Wf0:Wf0, Wr:Wr, Wf:Wf, dW:dW, rr:rr, ff:ff, sFpct:sFpct, frontDriven:frontDriven, lead:lead, DP:dpNew};
+      DP = 0.5*DP + 0.5*dpNew;
+    }
+    var vt = S.speed/3.6, va = vt*(1-sR);
+    var Pin = Wr*rr.r.GTR*vt + (frontDriven ? Wf*ff.r.GTR*vt*(1+lead) : 0);
+    o.va = va; o.Pin = Math.max(0,Pin); o.Pdb = Math.max(0,o.DP)*va;
+    o.eff = o.Pin>0 ? clamp(o.Pdb/o.Pin, 0, 1) : 0;
+    o.ratio = o.DP/Wt;
+    o.frontMR = frontDriven ? 0 : Wf*ff.r.MRR;
+    o.frontPull = frontDriven ? Wf*ff.r.NTR : 0;
+    return o;
+  }
+  function wtCurve(S, soil){
+    var pts = [], best = {s:0, e:-1};
+    SL.forEach(function(s){
+      var t = tractorSolve(S,soil,s);
+      pts.push({s:s, ratio:t.ratio, eff:t.eff});
+      if (t.eff>best.e) best = {s:s, e:t.eff};
+    });
+    return {pts:pts, best:best};
   }
 
   /* ---------- chart helpers ---------- */
@@ -518,7 +670,6 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
       if (c.a==="LS"){ sy += 1; }
       g += '<text x="'+sx.toFixed(1)+'" y="'+(sy+3.5).toFixed(1)+'" text-anchor="middle" style="fill:var(--fg);font-size:10.5px;'+(i===ci?'font-weight:600;':'opacity:.75;')+'">'+c.a+'</text>';
     });
-    // tick labels and axis titles
     for (var t=10;t<=90;t+=10){
       var L = [TRI.BL[0]+(TRI.TOP[0]-TRI.BL[0])*t/100, TRI.BL[1]+(TRI.TOP[1]-TRI.BL[1])*t/100];
       g += '<text x="'+(L[0]-8)+'" y="'+(L[1]+4)+'" text-anchor="end">'+t+'</text>';
@@ -594,6 +745,7 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     $("att-note").innerHTML = '<span class="pill '+ai.tone+'" style="margin:0 6px 0 0">'+ai.label+'</span>'+ai.text;
   }
 
+  /* ---------- cone index chart ---------- */
   function drawCI(S){
     var sm = soilFor(Object.assign({}, S, {useCI:false}), S.cond);
     var CImod = ciOf(sm, S.moist);
@@ -635,12 +787,24 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     var S = readState();
     var ci = classify(S.sand,S.silt,S.clay);
     var soil = soilFor(S, S.cond);
+
+    // whole tractor first, since it sets the dynamic wheel load
+    var T = tractorSolve(S, soil, S.slip);
+    S.slipR = S.slip;
+    var rearSel = (S.wheel==="rear") || S.drive==="2wd";
+    S.tyreObj = rearSel ? S.rear : S.front;
+    S.infl = rearSel ? S.inflR : S.inflF;
+    S.slip = rearSel ? S.slipR : T.sFpct;
+    var Wwheel = rearSel ? T.Wr/2 : T.Wf/2;
+    if (S.autoload){ S.load = Math.max(0.2, Wwheel); $("load").value = clamp(S.load,2,40); }
+    $("load").disabled = S.autoload;
+
     var G = tyreGeom(S);
     var cur = traction(soil,S,G,S.slip);
     var opt = optimum(soil,S,G);
     var sink = sinkage(soil,S,G,S.slip);
     var s400 = stressAt(soil,S,G,0.4);
-    var vAct = S.speed/3.6*(1-S.slip/100);
+    var vAct = T.va;
     var DP = cur.NTR*S.load;
     var Pdb = Math.max(0, DP*vAct);
     var att = attOf(S), ai = attInfo(att, S.moist);
@@ -653,27 +817,38 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     $("quick").value = String(ci);
     $("o-moist").textContent = fmt(S.moist,1)+" %";
     $("o-load").textContent  = fmt(S.load,1)+" kN";
-    $("o-infl").textContent  = fmt(S.infl,0)+" kPa";
-    $("o-slip").textContent  = fmt(S.slip,1)+" %";
+    $("o-slip").textContent  = fmt(S.slipR,1)+" %";
     $("o-speed").textContent = fmt(S.speed,1)+" km/h";
+    $("o-mass").textContent = fmt(S.mass,0)+" kg";
+    $("o-fr").textContent = fmt(S.fr,0)+" %";
+    $("o-wb").textContent = fmt(S.wb,2)+" m";
+    $("o-hd").textContent = fmt(S.hd,2)+" m";
+    $("o-inflR").textContent = fmt(S.inflR,0)+" kPa";
+    $("o-inflF").textContent = fmt(S.inflF,0)+" kPa";
+    $("o-lead").textContent = fmt(S.lead,1)+" %";
+    $("statics").textContent = "Static axle loads: rear "+fmt(T.Wr0,1)+" kN ("+fmt(T.Wr0/9.81*1000,0)+" kg), front "+fmt(T.Wf0,1)+" kN ("+fmt(T.Wf0/9.81*1000,0)+" kg). Rear tyre "+S.rear.label+(S.drive==="4wd"?", same on the front axle":", front tyre "+S.front.label)+".";
     var dw = S.moist - soil.wref;
     $("moist-note").textContent = (soil.CImeas!=null ? "Strength now comes from your measured cone index, not moisture. " : "") + "Reference (near field capacity) for this texture: "+fmt(soil.wref,1)+" %. Currently "+(Math.abs(dw)<1.5?"near it":(dw>0?fmt(dw,1)+" points wetter":fmt(-dw,1)+" points drier"))+".";
+
+    $("sw-title").textContent = (rearSel?"Rear":"Front")+" wheel, "+S.tyreObj.label+", "+fmt(S.load,2)+" kN"+(S.autoload?" dynamic load":" (manual load)");
+    $("wt-title").textContent = DRIVES_NAME[S.drive]+", "+fmt(S.mass,0)+" kg";
 
     var risk = s400<50 ? ["good","Low"] : (s400<100 ? ["warn","Moderate"] : ["crit","High"]);
     var K = [
       ["Tractive efficiency", fmt(cur.TE*100,1), "%", "Optimum "+fmt(opt.te*100,1)+"% at "+fmt(opt.s,1)+"% slip"],
-      ["Net traction ratio", fmt(cur.NTR,3), "", "Drawbar pull per unit load"],
-      ["Drawbar pull", fmt(Math.max(DP,0),2), "kN", "Per driven wheel"],
-      ["Drawbar power", fmt(Pdb,2), "kW", "At "+fmt(vAct*3.6,2)+" km/h actual"],
+      ["Net traction ratio", fmt(cur.NTR,3), "", "Pull per unit wheel load"],
+      ["Drawbar pull", fmt(Math.max(DP,0),2), "kN", "This wheel only"],
+      ["Drawbar power", fmt(Pdb,2), "kW", "This wheel, "+fmt(vAct*3.6,2)+" km/h actual"],
       ["Mobility number, B<sub>n</sub>", fmt(cur.Bn,1), "", "Cone index "+fmt(cur.CI,0)+" kPa"],
       ["Rut depth", fmt(sink*1000,0), "mm", "Including slip sinkage"],
       ["Mean contact pressure", fmt(G.pc,0), "kPa", "Contact area "+fmt(G.A,3)+" m²"],
       ["Stress at 0.4 m", fmt(s400,0)+'<span style="margin:0">&nbsp;kPa</span>', '<b class="pill '+risk[0]+'">'+risk[1]+'</b>', "Compaction risk"]
     ];
-    $("kpis").innerHTML = K.map(function(k){
+    var kHtml = function(K){ return K.map(function(k){
       var unit = k[2] ? (k[2].indexOf("<b")===0 ? k[2] : '<span>'+k[2]+'</span>') : '';
       return '<div class="kpi"><div class="l">'+k[0]+'</div><div class="v">'+k[1]+unit+'</div><div class="h">'+k[3]+'</div></div>';
-    }).join("");
+    }).join(""); };
+    $("kpis").innerHTML = kHtml(K);
 
     var adv = [];
     var diff = S.slip - opt.s;
@@ -687,6 +862,36 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     else if (ai.key==="solid") adv.push(["warn","Moisture is below the shrinkage limit of "+fmt(att.SL,1)+" %. Tillage draft will be high and the soil will break into clods."]);
     $("advice").innerHTML = adv.map(function(a){return '<p class="'+a[0]+'">'+a[1]+'</p>'}).join("");
 
+    // whole tractor block
+    var wc = wtCurve(S, soil);
+    var K2 = [
+      ["Drawbar pull", fmt(Math.max(T.DP,0),2), "kN", "About "+fmt(Math.max(T.DP,0)*101.97,0)+" kgf"],
+      ["Drawbar power", fmt(T.Pdb,2), "kW", "At "+fmt(T.va*3.6,2)+" km/h actual"],
+      ["Tractive efficiency", fmt(T.eff*100,1), "%", "Peak "+fmt(wc.best.e*100,1)+"% at "+fmt(wc.best.s,1)+"% slip"],
+      ["Pull–weight ratio", fmt(T.ratio,3), "", "Of "+fmt(S.mass,0)+" kg tractor"],
+      ["Rear axle load", fmt(T.Wr,1), "kN", fmt(T.Wr/T.Wt*100,0)+"% of weight, static "+fmt(T.Wr0,1)+" kN"],
+      ["Front axle load", fmt(T.Wf,1), "kN", fmt(T.Wf/T.Wt*100,0)+"% of weight, static "+fmt(T.Wf0,1)+" kN"],
+      ["Weight transfer", fmt(T.dW,2), "kN", "Moved to rear by the pull"],
+      ["Slip, rear / front", fmt(S.slipR,1)+" / "+(T.frontDriven?fmt(T.sFpct,1):"–"), "%", T.frontDriven?"Front wheels driven":"Front wheels free-rolling"]
+    ];
+    $("kpis2").innerHTML = kHtml(K2);
+    var adv2 = [];
+    if (T.DP <= 0) adv2.push(["warn","No net drawbar pull at this slip. Motion resistance exceeds the traction developed, so raise the slip or reduce front-axle resistance."]);
+    if (T.Wf/T.Wt < 0.2) adv2.push(["crit","The front axle carries only "+fmt(T.Wf/T.Wt*100,0)+"% of the weight. Steering and stability suffer below about 20%, so add front ballast, move weight forward or lower the hitch."]);
+    if (!T.frontDriven && T.frontMR>0){
+      var share = T.frontMR/Math.max(0.01,T.Wr*T.rr.r.NTR)*100;
+      adv2.push([share>15?"warn":"good","Free-rolling front wheels use "+fmt(T.frontMR,2)+" kN of motion resistance, about "+fmt(share,0)+"% of the rear-axle net pull."]);
+    }
+    if (T.frontDriven){
+      var fshare = T.frontPull/Math.max(0.01,T.DP)*100;
+      adv2.push(["good","The front axle supplies about "+fmt(fshare,0)+"% of the drawbar pull, at "+fmt(T.sFpct,1)+"% slip against "+fmt(S.slipR,1)+"% at the rear."]);
+    }
+    var gap = S.slipR - wc.best.s;
+    if (gap > 3) adv2.push(["warn","Rear slip is "+fmt(gap,1)+" points above the slip that gives the best whole-tractor efficiency ("+fmt(wc.best.s,1)+"%)."]);
+    else if (gap < -3) adv2.push(["warn","Rear slip is "+fmt(-gap,1)+" points below the slip that gives the best whole-tractor efficiency ("+fmt(wc.best.s,1)+"%). A heavier implement would use the tractor better."]);
+    else adv2.push(["good","Rear slip is close to the slip for best whole-tractor efficiency."]);
+    $("advice2").innerHTML = adv2.map(function(a){return '<p class="'+a[0]+'">'+a[1]+'</p>'}).join("");
+
     drawTri(S,ci);
     drawAtt(S,att,ai,soil);
     drawCI(S);
@@ -694,8 +899,10 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     drawC2(S,G,soil,cur);
     drawC3(S,G,soil,s400);
     drawC4(S,G,soil,sink);
+    drawC5(S,wc,T);
     drawTable(S,G,soil);
   }
+  var DRIVES_NAME = {"2wd":"2WD tractor","mfwd":"MFWD tractor","4wd":"4WD tractor"};
 
   function drawC1(S,G,soil,opt,cur){
     var o = {W:640,H:340,ml:52,mr:20,mt:16,mb:44,x0:0,x1:30,y0:0,y1:100,
@@ -758,7 +965,7 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
 
   function drawC3(S,G,soil,s400){
     var xmax = Math.max(60, Math.ceil(G.pc*1.15/20)*20);
-    var o = {W:320,H:320,ml:46,mr:14,mt:14,mb:44,x0:0,x1:xmax,y0:0,y1:0.8,
+    var o = {W:320,H:320,ml:46,mr:22,mt:14,mb:44,x0:0,x1:xmax,y0:0,y1:0.8,
       xt:[0,xmax/4,xmax/2,xmax*3/4,xmax].map(function(v){return Math.round(v)}),yt:[0,0.2,0.4,0.6,0.8],
       fy:function(t){return t.toFixed(1)},xl:"Vertical stress (kPa)",yl:"Depth (m)"};
     var f = frame(o);
@@ -802,13 +1009,36 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     $("c4note").textContent = "Depth window is 150 mm"+(zmm>150?"; this rut is deeper than the window.":".");
   }
 
+  function drawC5(S,wc,T){
+    var o = {W:640,H:300,ml:52,mr:20,mt:16,mb:44,x0:0,x1:30,y0:-0.1,y1:1,
+      xt:[0,5,10,15,20,25,30],yt:[0,0.2,0.4,0.6,0.8,1],fy:function(t){return t.toFixed(1)},xl:"Rear wheel slip (%)",yl:"Ratio (–)"};
+    var f = frame(o), g = axes(o,f);
+    var a = wc.pts.map(function(p){return [f.xs(p.s), f.ys(clamp(p.ratio,-0.1,1))]});
+    var b = wc.pts.map(function(p){return [f.xs(p.s), f.ys(clamp(p.eff,-0.1,1))]});
+    g += '<line x1="'+o.ml+'" x2="'+(o.W-o.mr)+'" y1="'+f.ys(0)+'" y2="'+f.ys(0)+'" stroke="var(--muted)" stroke-dasharray="2 3"/>';
+    g += '<path d="'+path(a)+'" fill="none" stroke="var(--gtr)" stroke-width="2.8"/>';
+    g += '<path d="'+path(b)+'" fill="none" stroke="var(--ntr)" stroke-width="2.8"/>';
+    var bx = f.xs(wc.best.s), by = f.ys(wc.best.e);
+    g += '<circle cx="'+bx+'" cy="'+by+'" r="9" fill="var(--red)"/>';
+    g += '<text x="'+bx+'" y="'+(by+3.5)+'" text-anchor="middle" style="fill:#fff;font-size:10px;font-weight:500">'+fmt(wc.best.s,0)+'</text>';
+    var px = f.xs(S.slipR);
+    g += '<line x1="'+px+'" x2="'+px+'" y1="'+o.mt+'" y2="'+(o.H-o.mb)+'" stroke="var(--fg)" stroke-dasharray="4 4" stroke-opacity="0.6"/>';
+    g += '<circle cx="'+px+'" cy="'+f.ys(clamp(T.ratio,-0.1,1))+'" r="5" fill="var(--surface)" stroke="var(--gtr)" stroke-width="2.5"/>';
+    g += '<circle cx="'+px+'" cy="'+f.ys(clamp(T.eff,-0.1,1))+'" r="5" fill="var(--surface)" stroke="var(--ntr)" stroke-width="2.5"/>';
+    var right = px > 440;
+    g += '<text x="'+(right?px-10:px+10)+'" y="'+(o.mt+14)+'" text-anchor="'+(right?'end':'start')+'" style="fill:var(--fg);font-size:12px">DP/W '+fmt(T.ratio,2)+' · efficiency '+fmt(T.eff*100,0)+'% · DP '+fmt(Math.max(T.DP,0),2)+' kN</text>';
+    g += '<rect x="'+o.ml+'" y="'+o.mt+'" width="'+(o.W-o.ml-o.mr)+'" height="'+(o.H-o.mt-o.mb)+'" fill="transparent"/>';
+    $("c5").innerHTML = g;
+    $("c5")._f = {ml:o.ml, mr:o.mr, W:o.W, x0:o.x0, x1:o.x1};
+  }
+
   function drawTable(S,G,soil){
     var rows = '<tr><th>Surface</th><th>CI (kPa)</th><th>s<sub>opt</sub> (%)</th><th>TE<sub>max</sub> (%)</th></tr>';
     Object.keys(CONDS).forEach(function(k){
       var s = soilFor(S,k), op = optimum(s,S,G), sel = k===S.cond;
       rows += '<tr'+(sel?' style="font-weight:600"':'')+'><td><span class="dot" style="display:inline-block;background:'+s.color+';margin-right:6px"></span>'+s.name+'</td><td>'+fmt(ciOf(s,S.moist),0)+'</td><td>'+fmt(op.s,1)+'</td><td>'+fmt(op.te*100,1)+'</td></tr>';
     });
-    rows += '<tr><td colspan="4" style="text-align:left;color:var(--muted);white-space:normal">Derived from texture: n = '+fmt(soil.n,2)+', k<sub>c</sub> = '+fmt(soil.kc,1)+' kN/m<sup>n+1</sup>, k<sub>φ</sub> = '+fmt(soil.kphi,0)+' kN/m<sup>n+2</sup></td></tr>';
+    rows += '<tr><td colspan="4" style="text-align:left;color:var(--muted);white-space:normal">Single wheel, optimum slip and TE for the wheel above. Derived from texture: n = '+fmt(soil.n,2)+', k<sub>c</sub> = '+fmt(soil.kc,1)+' kN/m<sup>n+1</sup>, k<sub>φ</sub> = '+fmt(soil.kphi,0)+' kN/m<sup>n+2</sup></td></tr>';
     $("ptable").innerHTML = rows;
   }
 
@@ -820,11 +1050,31 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     $("sand").value = t[0]; $("silt").value = t[1]; $("clay").value = t[2];
     update();
   });
+  $("rearTyre").innerHTML = REAR_GROUPS.map(function(g){
+    return '<optgroup label="'+g.g+'">'+g.t.map(optHtml).join("")+'</optgroup>';
+  }).join("");
+  $("rearTyre").value = "14.9-28";
+  applyDrive("2wd");
+
+  function setComp(changed, v){
+    var keys = ["sand","silt","clay"], others = keys.filter(function(k){return k!==changed});
+    var a = +$(others[0]).value, b = +$(others[1]).value, rest = 100 - v;
+    if (a+b===0){ a = rest/2; b = rest/2; } else { var na = a/(a+b)*rest; b = rest - Math.round(na); a = Math.round(na); }
+    $(changed).value = v; $(others[0]).value = a; $(others[1]).value = b;
+  }
   ["sand","silt","clay"].forEach(function(k){
     $(k).addEventListener("input", function(){ setComp(k, +$(k).value); update(); });
   });
-  ["moist","load","infl","slip","speed","tyre"].forEach(function(k){ $(k).addEventListener("input", update); });
+  ["moist","load","slip","speed","mass","fr","wb","hd","lead","inflR","inflF","rearTyre","frontTyre"].forEach(function(k){
+    $(k).addEventListener("input", update);
+    $(k).addEventListener("change", update);
+  });
+  $("autoload").addEventListener("change", update);
   Array.prototype.forEach.call(document.querySelectorAll('input[name="cond"]'), function(r){ r.addEventListener("change", update); });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="wheel"]'), function(r){ r.addEventListener("change", update); });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="drive"]'), function(r){
+    r.addEventListener("change", function(){ applyDrive(r.value); update(); });
+  });
   Array.prototype.forEach.call(document.querySelectorAll("#scen .chip"), function(b){
     b.addEventListener("click", function(){ writeState(scenarioState(b.getAttribute("data-s"))); });
   });
@@ -871,8 +1121,8 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     svg.addEventListener("pointercancel", function(){ dragging = false; });
   })();
 
-  // drag on slip charts
-  ["c1","c2"].forEach(function(id){
+  // drag on slip charts (sets rear wheel slip)
+  ["c1","c2","c5"].forEach(function(id){
     var svg = $(id), dragging = false;
     function setFromEvent(e){
       var r = svg.getBoundingClientRect(), f = svg._f;

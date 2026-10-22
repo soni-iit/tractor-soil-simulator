@@ -1,24 +1,39 @@
 # Tractor–Soil Interaction Simulator
 
-An interactive, browser-based teaching model of driven-wheel traction. Starting from soil texture (sand, silt, clay on the USDA triangle), it shows how wheel load, inflation pressure, soil moisture and slip change tractive efficiency, drawbar pull and power, rut depth and subsoil stress.
+An interactive, browser-based teaching model of tractor traction. You choose a drive type (2WD, MFWD or 4WD) and tractor tyres commonly used in India, set the soil from sand, silt and clay on the USDA triangle, and see how moisture, inflation pressure and slip change traction, sinkage and subsoil stress. Results are given in two clearly separated blocks: one **single driving wheel**, and the **whole tractor**.
 
-**Live version:** `https://soni-iit.github.io/tractor-soil-simulator/`
+**Live version:** `https://soni-iit.github.io/tractor-soil-simulator/` (replace with your GitHub Pages address)
 
 The whole simulator is one file, `index.html`. There is nothing to install: open it in any modern browser, online or offline. (An internet connection is only used to load the fonts. Without it the page falls back to system fonts.)
 
 ## What you can do
 
+- Select the drive type (2WD, MFWD or 4WD), the rear tyre and the front tyre from typical Indian sizes, and set tractor mass, rear static weight share, wheelbase, drawbar hitch height, tyre inflation pressures and (for MFWD) front-wheel lead.
 - Set soil texture by dragging in the USDA triangle, moving the sand, silt and clay sliders, or choosing a typical composition for any of the 12 USDA classes.
 - Choose a surface condition (firm, tilled or loose) and the soil moisture (% dry basis).
 - Read the Atterberg consistency state (solid, semi-solid, plastic, liquid) at the chosen moisture.
 - Optionally enter a measured cone-index profile with depth (0 to 50 cm). Its mean over 0–150 mm replaces the estimated cone index.
-- Set wheel load, inflation pressure, slip, theoretical speed and tyre size.
-- Read tractive efficiency, net traction ratio, drawbar pull and power, mobility number, rut depth, contact pressure and stress at 0.4 m depth, with warnings for slip, rut depth, compaction and soil consistency.
-- Drag on the slip charts to set slip. Optional operating scenarios fill in typical settings while keeping your soil texture.
+- Read **single driving wheel** results: tractive efficiency, net traction ratio, drawbar pull and power for that wheel, mobility number, rut depth, contact pressure and stress at 0.4 m depth, with charts and warnings. You can analyse the rear wheel or, on MFWD and 4WD, a front driving wheel, using the dynamic load from the tractor or a manual load.
+- Read **whole tractor** results: drawbar pull and power, tractive efficiency, pull–weight ratio, dynamic axle loads, weight transfer, and rear and front slip, with a chart against rear-wheel slip.
+- Drag on the slip charts to set slip. Optional operating scenarios keep your tractor and soil texture, and set surface condition, moisture, slip, speed and rear inflation.
+
+## Tractor tyres
+
+Rear tyres are grouped as in common Indian practice. Overall diameter is estimated from the nominal size as $`d = D_{rim} + 2 \times 0.85 \times w`$ (0.9 for the narrow 2WD front tyres), with section width $`w`$ in inches. The geometry is approximate, not manufacturer data.
+
+| Category | Rear tyre sizes |
+|---|---|
+| Mini / small tractor | 8.00-18, 8.3-20, 9.5-20 |
+| Compact tractor | 8.3-24, 9.5-24, 11.2-24, 12.4-24, 14.9-24 |
+| Standard tractor | 11.2-28, 12.4-28, 13.6-28, 14.9-28, 15.9-28, 16.9-28, 17.9-28 |
+| Large tractor | 16.9-30, 18.4-30 |
+| Specialized agricultural tractor | 8.3-32, 12.4-32, 13.6-38, 15.5-38, 16.9-38 |
+
+Front tyres offered are 5.00-15, 6.00-16, 6.50-16, 7.50-16 and 7.50-18 for 2WD (free-rolling), and 7.50-16, 8.3-20, 8.3-24, 9.5-24, 11.2-24, 12.4-24 and 13.6-24 for MFWD. The 4WD option uses the rear tyre size on both axles.
 
 ## Model
 
-### Wheel traction (Brixius wheel-numeric model)
+### Single driving wheel (Brixius wheel-numeric model)
 
 ```math
 B_n = \frac{CI \, b \, d}{W} \cdot \frac{1 + 5\,\delta/h}{1 + 3\,b/d}
@@ -36,7 +51,7 @@ MRR = \frac{1.2}{B_n} + 0.04 + \frac{0.5\, s}{\sqrt{B_n}}
 NTR = GTR - MRR, \qquad TE = \frac{NTR\,(1 - s)}{GTR}
 ```
 
-Here $`CI`$ is the cone index (kPa), $`b`$ the tyre width, $`d`$ the tyre diameter, $`h`$ the section height, $`\delta`$ the tyre deflection, $`W`$ the wheel load, and $`s`$ the slip as a fraction. Drawbar pull is $`NTR \cdot W`$, and drawbar power is that pull times the actual travel speed $`v_t (1 - s)`$.
+Here $`CI`$ is the cone index (kPa), $`b`$ the tyre width, $`d`$ the tyre diameter, $`h`$ the section height, $`\delta`$ the tyre deflection, $`W`$ the wheel load, and $`s`$ the slip as a fraction. Drawbar pull of one wheel is $`NTR \cdot W`$.
 
 ### Tyre contact
 
@@ -61,6 +76,38 @@ z = \left(\frac{p_c}{k_c/b + k_\phi}\right)^{1/n}(1 + 4s)
 ```
 
 The Bekker sinkage uses $`k_c`$ and $`k_\phi`$ scaled by the ratio of the current cone index to the firm-soil reference. The stress concentration factor $`\nu`$ is 4 for firm and 5 for tilled and loose surfaces, reduced by $`0.08\,(w - w_{FC})`$ and limited to 2.5 to 6. Compaction risk at 0.4 m is flagged as low below 50 kPa, moderate from 50 to 100 kPa and high above 100 kPa. These thresholds are indicative only.
+
+### Whole tractor
+
+Static axle loads come from the tractor mass $`m`$ and the rear weight share. With drawbar pull $`DP`$ at hitch height $`h_d`$ and wheelbase $`L_{wb}`$, load moves to the rear axle:
+
+```math
+W_r = W_{r0} + DP\,\frac{h_d}{L_{wb}}, \qquad W_f = W_{f0} - DP\,\frac{h_d}{L_{wb}}
+```
+
+The drawbar pull depends on the drive type. Because the axle loads depend on $`DP`$, the model solves them by iteration.
+
+```math
+\text{2WD: } DP = W_r\,NTR_r - W_f\,MRR_f(s = 0)
+```
+
+```math
+\text{MFWD, 4WD: } DP = W_r\,NTR_r + W_f\,NTR_f
+```
+
+On MFWD the front wheels have a positive lead, so they slip more than the rear wheels:
+
+```math
+s_f = 1 - \frac{1 - s_r}{1 + \text{lead}}
+```
+
+The 4WD option has equal tyres on both axles and no lead. Whole-tractor tractive efficiency is the drawbar power divided by the axle input power:
+
+```math
+\eta = \frac{DP \, v_a}{\sum GTR\; W\; v_t}, \qquad v_a = v_t\,(1 - s_r)
+```
+
+Simplifications: the pull is taken as horizontal, rolling-moment terms are ignored, front wheels are assumed to run in undisturbed soil, and rear wheels running in front-wheel ruts are not modelled. A warning appears when the front axle carries less than 20% of the weight.
 
 ### Soil texture to parameters
 
@@ -114,7 +161,8 @@ with $`z`$ in metres and $`b`$ = 4 (firm) or 3 (tilled, loose).
 This is an illustrative teaching model, not a validated design tool.
 
 - The texture-to-parameter and Atterberg relations are simple correlations built from representative terramechanics values. They are not fitted to a measured dataset.
-- The Brixius model was developed for pneumatic tyres on agricultural soils. It does not represent tracks, dual wheels, implement draft or load transfer.
+- The Brixius model was developed for pneumatic tyres on agricultural soils. It does not represent tracks, dual wheels or implement draft.
+- The whole-tractor block is a simplified estimate. Default tractor masses, weight distributions, front tyre options and tyre geometry are typical values, not data for any specific tractor model.
 - Slip sinkage, the contact-patch geometry and the stress profile are simplified.
 - Use measured cone index and Bekker parameters for any design, publication or decision.
 
