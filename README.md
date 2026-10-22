@@ -1,8 +1,10 @@
 # Tractor–Soil Interaction Simulator
 
+[![DOI](https://zenodo.org/badge/1429559842.svg)](https://doi.org/10.5281/zenodo.23560841)
+
 An interactive, browser-based teaching model of tractor traction. You choose a drive type (2WD, MFWD or 4WD) and tractor tyres commonly used in India, set the soil from sand, silt and clay on the USDA triangle, and see how moisture, inflation pressure and slip change traction, sinkage and subsoil stress. Results are given in two clearly separated blocks: one **single driving wheel**, and the **whole tractor**.
 
-**Live version:** `https://soni-iit.github.io/tractor-soil-simulator/` (replace with your GitHub Pages address)
+**Live version:** [https://soni-iit.github.io/tractor-soil-simulator/](https://soni-iit.github.io/tractor-soil-simulator/)
 
 The whole simulator is one file, `index.html`. There is nothing to install: open it in any modern browser, online or offline. (An internet connection is only used to load the fonts. Without it the page falls back to system fonts.)
 
@@ -168,7 +170,9 @@ This is an illustrative teaching model, not a validated design tool.
 
 ## Suggested citation
 
-Soni, P. (2026). *Tractor–Soil Interaction Simulator* [Software]. GitHub. `https://github.com/soni-iit/tractor-soil-simulator`
+Soni, P. (2026). *Tractor–Soil Interaction Simulator* [Software]. Zenodo. https://doi.org/10.5281/zenodo.23560841
+
+Source code: https://github.com/soni-iit/tractor-soil-simulator
 
 ## References
 
