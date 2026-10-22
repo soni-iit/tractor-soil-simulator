@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Interactive tractor wheel traction, sinkage and subsoil stress model driven by USDA soil texture, Atterberg limits and cone index.">
+<meta name="author" content="Peeyush Soni">
 <style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Tractor–Soil Interaction Simulator</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -138,6 +140,12 @@ th,td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);white
 th:first-child,td:first-child{text-align:left}
 th{color:var(--muted);font-weight:500}
 footer{color:var(--muted);font-size:12px;max-width:100ch}
+.byline{margin-top:6px;font-size:13px;color:var(--muted)}
+.byline a,.cite a{color:var(--accent)}
+.cite{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:12px;color:var(--fg);font-size:13px}
+.cite h2{margin:0 0 6px}
+.cite p{margin:0 0 8px}
+.cite button{background:none;border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:12.5px;cursor:pointer;color:var(--accent)}
 @media (prefers-reduced-motion:no-preference){.pill,.chip{transition:border-color .15s,color .15s}}
 </style>
 
@@ -145,7 +153,10 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
 <body>
 <div class="wrap">
 <header>
-  <h1>Tractor–Soil Interaction Simulator</h1>
+  <div>
+    <h1>Tractor–Soil Interaction Simulator</h1>
+    <div class="byline">Peeyush Soni · Department of Agricultural and Food Engineering, IIT Kharagpur · <a href="https://doi.org/10.5281/zenodo.23560841" target="_blank" rel="noopener">DOI 10.5281/zenodo.23560841</a></div>
+  </div>
   <p>Choose the tractor type and tyres, set the soil from sand, silt and clay, then vary moisture, inflation and slip. Results are shown for a single driving wheel and for the whole tractor.</p>
 </header>
 
@@ -346,7 +357,14 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     </section>
   </main>
 </div>
-<footer>Illustrative teaching model. The texture-to-parameter relations are simple correlations built from representative terramechanics values (Wong, Terramechanics), so use measured cone index and Bekker parameters for design or publication. The whole-tractor block is a simplified estimate, not a prediction for a specific tractor model.</footer>
+<footer>
+<div class="cite">
+  <h2>How to cite</h2>
+  <p id="citetext">Soni, P. (2026). Tractor–Soil Interaction Simulator [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23560841</p>
+  <p>Author: Peeyush Soni, Department of Agricultural and Food Engineering, Indian Institute of Technology Kharagpur. Released under the MIT licence. Source code: <a href="https://github.com/soni-iit/tractor-soil-simulator" target="_blank" rel="noopener">github.com/soni-iit/tractor-soil-simulator</a>.</p>
+  <button type="button" id="copycite">Copy citation</button>
+</div>
+Illustrative teaching model. The texture-to-parameter relations are simple correlations built from representative terramechanics values (Wong, Terramechanics), so use measured cone index and Bekker parameters for design or publication. The whole-tractor block is a simplified estimate, not a prediction for a specific tractor model.</footer>
 </div>
 
 <script>
@@ -1136,6 +1154,18 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
     svg.addEventListener("pointermove", function(e){ if (dragging) setFromEvent(e); });
     svg.addEventListener("pointerup", function(){ dragging = false; });
     svg.addEventListener("pointercancel", function(){ dragging = false; });
+  });
+
+  var cb = $("copycite");
+  if (cb) cb.addEventListener("click", function(){
+    var el = $("citetext");
+    function fallback(){
+      try{ var r=document.createRange(); r.selectNodeContents(el); var s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }catch(_){}
+      cb.textContent = "Select and copy";
+    }
+    try{
+      navigator.clipboard.writeText(el.textContent).then(function(){ cb.textContent = "Copied"; }, fallback);
+    }catch(_){ fallback(); }
   });
 
   update();
