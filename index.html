@@ -100,6 +100,7 @@ select:disabled{opacity:.6}
 .region h2{margin:0 0 6px}
 .rname{font-family:var(--font-display);font-weight:700;font-size:20px;line-height:1.2}
 .rnote{margin:2px 0 8px;font-size:12.5px;color:var(--muted)}
+.scenebox svg{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;margin-top:6px;font-family:var(--font-body)}
 .rmap{display:block;width:100%;max-width:360px;margin:6px auto 4px}
 .rmap .st{fill:#bfe6f8;stroke:#fff;stroke-width:.8;stroke-linejoin:round}
 .rmap .st.hi{fill:#d9822b;stroke:#fff}
@@ -267,6 +268,11 @@ footer{color:var(--muted);font-size:12px;max-width:100ch}
       <p class="attnote" id="att-note"></p>
     </div>
     <div class="tblwrap"><table id="ptable"></table></div>
+    <div class="scenebox">
+      <h2>Field view: soil, tractor and axle loads</h2>
+      <svg id="scene" viewBox="0 0 640 460" role="img" aria-label="Side view of the tractor on the selected soil, with highlighted driving and free-rolling tyres and arrows for front and rear axle loads"></svg>
+      <p class="attnote" id="scene-note"></p>
+    </div>
   </div>
 </section>
 
@@ -828,6 +834,201 @@ Illustrative teaching model. The texture-to-parameter relations are simple corre
     $("ci-note").innerHTML = note;
   }
 
+  /* ---------- field view: soil cross-section with tractor, tyres and axle loads ---------- */
+  function mulberry(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  var SC = (function(){
+    var r = mulberry(11), o = {grains:[], clods:[], cracks:[]};
+    for (var i=0;i<380;i++) o.grains.push({x:r()*640, y:r(), u:r(), s:r()});
+    for (var j=0;j<40;j++) o.clods.push({x:12+r()*616, r:r(), t:r()});
+    for (var c=0;c<16;c++) o.cracks.push({x:(c+0.5)/16*640 + (r()-0.5)*26, d:r(), j:r()});
+    var perm = o.cracks.map(function(v,i){return i}).sort(function(a,b){return o.cracks[a].j-o.cracks[b].j});
+    o.order = perm;
+    return o;
+  })();
+  var SOILRGB = {sand:[224,198,142], silt:[190,172,146], clay:[148,98,68]};
+  function rgbStr(c,k){ k = k==null?1:k; return "rgb("+Math.round(clamp(c[0]*k,0,255))+","+Math.round(clamp(c[1]*k,0,255))+","+Math.round(clamp(c[2]*k,0,255))+")"; }
+  function mixC(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+
+  function drawScene(S, soil, att, ai, T){
+    var W=640, H=460, G=330, DEPTH=112;
+    var tr=S.rear, tf=S.front, wb=S.wb;
+    var k = Math.min(88, 540/(wb+(tr.d+tf.d)/2+1.5));
+    var Rr=tr.d/2*k, Rf=tf.d/2*k;
+    var rearDrv = true, frontDrv = S.drive!=="2wd";
+    // weight arrows scale (px per kN)
+    var roofTipR = G-2*Rr/2 - 1.55*k - 6;                 // y of rear arrow tip
+    var maxLen = Math.min(82, roofTipR-62);
+    var maxLoad = Math.max(T.Wr,T.Wf,T.Wr0,T.Wf0,0.1);
+    var ppk = Math.max(maxLen,20)/maxLoad;
+    var pull = Math.max(0,T.DP)*ppk;
+    var leftExt = Math.max(Rr,0.95*k) + pull + 6;
+    var rightExt = Math.max(Rf,0.45*k) + 4;
+    var total = leftExt + wb*k + rightExt;
+    var xr = (W-total)/2 + leftExt, xf = xr + wb*k;
+    var yR = G-Rr, yF = G-Rf;
+    // rut depths (true scale)
+    var zrT = sinkage(soil,{moist:S.moist},T.rr.G,S.slipR), zfT = sinkage(soil,{moist:S.moist},T.ff.G,T.frontDriven?T.sFpct:0);
+    var zr = clamp(zrT*k, 0, 34), zf = clamp(zfT*k, 0, 34);
+    var hwr = T.rr.G.L*k/2+8, hwf = T.ff.G.L*k/2+8;
+    // soil colour from texture, moisture, dryness
+    var base = mixC(mixC([0,0,0],SOILRGB.sand,1),[0,0,0],0);
+    var f = [S.sand/100, S.silt/100, S.clay/100];
+    base = [0,1,2].map(function(i){ return SOILRGB.sand[i]*f[0]+SOILRGB.silt[i]*f[1]+SOILRGB.clay[i]*f[2]; });
+    var m = clamp(S.moist/(2*soil.wref),0,1);
+    var dry = clamp((soil.wref - S.moist)/(soil.wref-3),0,1);
+    var col = mixC(base,[255,250,240],0.16*dry);
+    var cWet = [0,1,2].map(function(i){return col[i]*(1-0.42*m)});
+    var wet = ai.li!=null ? clamp(ai.li,0,1.3) : clamp((S.moist-1.3*soil.wref)/(0.8*soil.wref),0,1)*0.6;
+    var ciNow = ciOf(soil,S.moist);
+    var amp = S.cond==="firm"?0.9:(S.cond==="tilled"?3.2:5.5);
+    function surf(x){
+      var y = G + amp*(0.6*Math.sin(x*0.09+1.3)+0.4*Math.sin(x*0.23+0.4));
+      var d = Math.abs(x-xr); if (d<hwr) y += zr*0.5*(1+Math.cos(Math.PI*d/hwr));
+      d = Math.abs(x-xf); if (d<hwf) y += zf*0.5*(1+Math.cos(Math.PI*d/hwf));
+      return y;
+    }
+    var pts = []; for (var x=0;x<=W;x+=4) pts.push([x,surf(x)]);
+    var line = pts.map(function(p,i){return (i?'L':'M')+p[0]+' '+p[1].toFixed(1)}).join(' ');
+    var poly = line+' L'+W+' '+(G+DEPTH)+' L0 '+(G+DEPTH)+' Z';
+    var g = '<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+rgbStr(cWet,1)+'"/><stop offset="1" stop-color="'+rgbStr(cWet,0.72)+'"/></linearGradient><clipPath id="sclip"><path d="'+poly+'"/></clipPath></defs>';
+    g += '<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="var(--bg)"/>';
+    g += '<g transform="translate(640,0) scale(-1,1)">';
+    g += '<path d="'+poly+'" fill="url(#sg)"/>';
+    g += '<g clip-path="url(#sclip)">';
+    // compaction strata: darker, denser lines where the cone index is high
+    var sCI = clamp(ciNow/2200,0.06,1);
+    for (var j=1;j<=7;j++){
+      var yy = G + j*DEPTH/8, zc = j/8*50, ratio = clamp(modelProfileAt(1,S.cond,zc)/1.3,0.3,1.6);
+      g += '<line x1="0" x2="'+W+'" y1="'+yy+'" y2="'+yy+'" stroke="rgb(40,25,15)" stroke-opacity="'+(0.07+0.3*sCI*ratio/1.6).toFixed(3)+'" stroke-width="'+(0.5+1.8*sCI*ratio/1.6).toFixed(2)+'"/>';
+    }
+    // grains: sand (coarse light), silt (fine neutral), clay (fine dark dashes)
+    SC.grains.forEach(function(p){
+      var gx=p.x, gy=G+4+p.y*(DEPTH-6);
+      if (p.u*100 < S.sand) g += '<circle cx="'+gx.toFixed(1)+'" cy="'+gy.toFixed(1)+'" r="'+(1.4+1.3*p.s).toFixed(1)+'" fill="'+rgbStr(mixC(cWet,[255,245,220],0.5))+'" fill-opacity=".85"/>';
+      else if (p.u*100 < S.sand+S.silt) g += '<circle cx="'+gx.toFixed(1)+'" cy="'+gy.toFixed(1)+'" r="'+(0.7+0.5*p.s).toFixed(1)+'" fill="'+rgbStr(cWet,0.8)+'" fill-opacity=".8"/>';
+      else g += '<line x1="'+gx.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+(gx+3+3*p.s).toFixed(1)+'" y2="'+(gy+0.6).toFixed(1)+'" stroke="'+rgbStr(cWet,0.6)+'" stroke-width="1.1" stroke-opacity=".7"/>';
+    });
+    // desiccation cracks: more and wider in dry clay
+    var inten = dry*clamp((S.clay-8)/30,0,1);
+    var nC = Math.round(inten*SC.cracks.length), dark = rgbStr(cWet,0.28);
+    for (var q=0;q<nC;q++){
+      var c = SC.cracks[SC.order[q]];
+      var x0 = c.x, depth = 22 + (DEPTH-30)*inten*(0.35+0.65*c.d), w0 = 0.9+2.6*inten*(0.5+0.5*c.d), seg = 8;
+      var L=[], R=[], cx=x0, cy=surf(x0), n=Math.max(3,Math.round(depth/seg));
+      for (var s=0;s<=n;s++){
+        var tt=s/n, w=w0*(1-tt);
+        L.push((cx-w).toFixed(1)+' '+cy.toFixed(1)); R.push((cx+w).toFixed(1)+' '+cy.toFixed(1));
+        cy += seg; cx += (Math.sin(s*2.7+c.j*9)*2.2);
+      }
+      g += '<path d="M'+L.join('L')+'L'+R.reverse().join('L')+'Z" fill="'+dark+'" fill-opacity=".9"/>';
+    }
+    g += '</g>';
+    // surface condition: clods on tilled and loose seedbeds
+    if (S.cond!=="firm"){
+      var nCl = S.cond==="tilled" ? 26 : 38, rMax = S.cond==="tilled" ? 8 : 12;
+      for (var i=0;i<nCl;i++){
+        var cl = SC.clods[i], cxp = cl.x;
+        if (Math.abs(cxp-xr)<hwr || Math.abs(cxp-xf)<hwf) continue;
+        var rr = 3+cl.r*rMax;
+        g += '<ellipse cx="'+cxp.toFixed(1)+'" cy="'+(surf(cxp)-rr*0.35).toFixed(1)+'" rx="'+rr.toFixed(1)+'" ry="'+(rr*0.72).toFixed(1)+'" fill="'+rgbStr(mixC(cWet,[255,245,225],0.12+0.1*cl.t))+'" stroke="'+rgbStr(cWet,0.6)+'" stroke-width=".8"/>';
+      }
+    }
+    // free water above the plastic limit
+    if (wet>0){
+      var tw = 3.5+9*Math.min(wet,1.3);
+      g += '<path d="'+line+'" fill="none" stroke="#4f9fe0" stroke-opacity="'+(0.4+0.4*Math.min(wet,1)).toFixed(2)+'" stroke-width="'+tw.toFixed(1)+'" stroke-linejoin="round"/>';
+      g += '<path d="'+line+'" fill="none" stroke="#ffffff" stroke-opacity="'+(0.15+0.3*Math.min(wet,1)).toFixed(2)+'" stroke-width="1" stroke-dasharray="14 22" transform="translate(0,-'+(tw/2).toFixed(1)+')"/>';
+    }
+    g += '<path d="'+line+'" fill="none" stroke="'+rgbStr(cWet,0.55)+'" stroke-width="1.4"/>';
+
+    // tractor body (dim)
+    var bf = 'fill="var(--muted)" fill-opacity=".16" stroke="var(--muted)" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"';
+    var cabL=xr-0.62*k, cabW=0.98*k, cabT=yR-1.55*k;
+    g += '<g>';
+    g += '<rect x="'+(xr+0.3*k).toFixed(1)+'" y="'+(yR-0.62*k).toFixed(1)+'" width="'+((xf+0.42*k)-(xr+0.3*k)).toFixed(1)+'" height="'+(0.8*k).toFixed(1)+'" rx="'+(0.1*k).toFixed(1)+'" '+bf+'/>';
+    g += '<path d="M'+cabL.toFixed(1)+' '+(yR+0.2*k).toFixed(1)+' L'+cabL.toFixed(1)+' '+(cabT+0.2*k).toFixed(1)+' Q'+cabL.toFixed(1)+' '+cabT.toFixed(1)+' '+(cabL+0.2*k).toFixed(1)+' '+cabT.toFixed(1)+' L'+(cabL+cabW-0.1*k).toFixed(1)+' '+cabT.toFixed(1)+' L'+(cabL+cabW+0.1*k).toFixed(1)+' '+(yR-0.62*k).toFixed(1)+' L'+(cabL+cabW+0.1*k).toFixed(1)+' '+(yR+0.2*k).toFixed(1)+' Z" '+bf+'/>';
+    g += '<rect x="'+(cabL+0.14*k).toFixed(1)+'" y="'+(cabT+0.14*k).toFixed(1)+'" width="'+(0.5*k).toFixed(1)+'" height="'+(0.5*k).toFixed(1)+'" rx="3" fill="var(--surface)" fill-opacity=".7" stroke="var(--muted)" stroke-opacity=".35"/>';
+    g += '<rect x="'+(xf+0.12*k).toFixed(1)+'" y="'+(yR-1.14*k).toFixed(1)+'" width="'+(0.07*k).toFixed(1)+'" height="'+(0.52*k).toFixed(1)+'" '+bf+'/>';
+    g += '<line x1="'+xf.toFixed(1)+'" y1="'+(yR+0.18*k).toFixed(1)+'" x2="'+xf.toFixed(1)+'" y2="'+yF.toFixed(1)+'" stroke="var(--muted)" stroke-opacity=".5" stroke-width="'+(0.09*k).toFixed(1)+'"/>';
+    var hy = G - S.hd*k, hx = xr-0.9*k;
+    g += '<path d="M'+xr.toFixed(1)+' '+yR.toFixed(1)+' L'+(xr-0.15*k).toFixed(1)+' '+hy.toFixed(1)+' L'+hx.toFixed(1)+' '+hy.toFixed(1)+'" fill="none" stroke="var(--muted)" stroke-opacity=".55" stroke-width="3"/>';
+    g += '</g>';
+
+    // wheels: highlighted, drawn to scale from the selected tyre sizes
+    function wheel(cx, cy, tyre, drv, selected){
+      var R = tyre.d/2*k, hh = tyre.ar*tyre.b*k, col = drv ? "#d9822b" : "#2f7fd0", s = '';
+      s += '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+R.toFixed(1)+'" fill="'+col+'" fill-opacity=".92" stroke="rgba(0,0,0,.55)" stroke-width="1.4"/>';
+      if (drv){
+        for (var a=0;a<28;a++){
+          var th = a/28*2*Math.PI, r0 = R-hh*0.55, c=Math.cos(th), sn=Math.sin(th);
+          s += '<line x1="'+(cx+c*r0).toFixed(1)+'" y1="'+(cy+sn*r0).toFixed(1)+'" x2="'+(cx+c*(R-0.5)).toFixed(1)+'" y2="'+(cy+sn*(R-0.5)).toFixed(1)+'" stroke="rgba(0,0,0,.5)" stroke-width="'+Math.max(2,hh*0.1).toFixed(1)+'" stroke-linecap="round"/>';
+        }
+      } else {
+        s += '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(R-hh*0.25).toFixed(1)+'" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="1.2"/>';
+        s += '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(R-hh*0.55).toFixed(1)+'" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="1.2"/>';
+      }
+      s += '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+Math.max(4,R-hh).toFixed(1)+'" fill="var(--surface)" stroke="rgba(0,0,0,.55)" stroke-width="1.2"/>';
+      s += '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+Math.max(3,(R-hh)*0.22).toFixed(1)+'" fill="var(--muted)"/>';
+      if (selected) s += '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(R+5).toFixed(1)+'" fill="none" stroke="var(--fg)" stroke-width="1.6" stroke-dasharray="5 4"/>';
+      return s;
+    }
+    var rearSel = (S.wheel==="rear") || S.drive==="2wd";
+    g += wheel(xr, yR+zr, tr, rearDrv, rearSel);
+    g += wheel(xf, yF+zf, tf, frontDrv, !rearSel);
+
+    // axle loads: solid arrow = current dynamic load, dashed outline = static load
+    function arrow(x, tipY, kN, dashed){
+      var len = Math.max(14, kN*ppk), sw = 7, hw = 15, hl = Math.min(18, len*0.5), top = tipY-len;
+      var d = 'M'+(x-sw)+' '+top.toFixed(1)+' L'+(x+sw)+' '+top.toFixed(1)+' L'+(x+sw)+' '+(tipY-hl).toFixed(1)+' L'+(x+hw)+' '+(tipY-hl).toFixed(1)+' L'+x.toFixed(1)+' '+tipY.toFixed(1)+' L'+(x-hw)+' '+(tipY-hl).toFixed(1)+' L'+(x-sw)+' '+(tipY-hl).toFixed(1)+' Z';
+      return dashed ? '<path d="'+d+'" fill="none" stroke="var(--fg)" stroke-opacity=".55" stroke-width="1.2" stroke-dasharray="4 3"/>'
+                    : '<path d="'+d+'" fill="#c42b3b" fill-opacity=".85" stroke="#8d1d29" stroke-width="1"/>';
+    }
+    var tipR = yR-1.55*k-6, tipF = yR-0.62*k-6;
+    g += arrow(xr,tipR,T.Wr0,true) + arrow(xr,tipR,T.Wr,false);
+    g += arrow(xf,tipF,T.Wf0,true) + arrow(xf,tipF,T.Wf,false);
+    var tx = function(x,y,t,a,fs,wt,fill){ return '<text x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" text-anchor="'+(a||"middle")+'" font-size="'+(fs||11)+'" font-weight="'+(wt||500)+'" fill="'+(fill||"var(--fg)")+'">'+t+'</text>'; };
+    var topR = tipR-Math.max(14,Math.max(T.Wr,T.Wr0)*ppk), topF = tipF-Math.max(14,Math.max(T.Wf,T.Wf0)*ppk);
+    g += '</g>';
+    g += tx(W-xr, topR-18, "Rear axle "+fmt(T.Wr,1)+" kN", "middle", 12, 600) + tx(W-xr, topR-5, fmt(T.Wr/T.Wt*100,0)+"% of weight", "middle", 10.5, 400, "var(--muted)");
+    g += tx(W-xf, topF-18, "Front axle "+fmt(T.Wf,1)+" kN", "middle", 12, 600) + tx(W-xf, topF-5, fmt(T.Wf/T.Wt*100,0)+"% of weight", "middle", 10.5, 400, "var(--muted)");
+    // drawbar pull
+    if (pull>6){
+      var px0 = hx, px1 = hx-pull;
+      g += '<g transform="translate(640,0) scale(-1,1)"><path d="M'+px0.toFixed(1)+' '+(hy-4).toFixed(1)+' L'+(px1+12).toFixed(1)+' '+(hy-4).toFixed(1)+' L'+(px1+12).toFixed(1)+' '+(hy-11).toFixed(1)+' L'+px1.toFixed(1)+' '+hy.toFixed(1)+' L'+(px1+12).toFixed(1)+' '+(hy+11).toFixed(1)+' L'+(px1+12).toFixed(1)+' '+(hy+4).toFixed(1)+' L'+px0.toFixed(1)+' '+(hy+4).toFixed(1)+' Z" fill="var(--good)" fill-opacity=".85" stroke="rgba(0,0,0,.4)"/></g>';
+      g += tx(W-px0+2, hy-17, "Pull "+fmt(T.DP,1)+" kN", "start", 10.5, 600, "var(--good)");
+    }
+    // direction of travel
+    g += tx(10, 44, "← direction of travel", "start", 10.5, 400, "var(--muted)");
+
+    // wheel labels on the soil
+    function lab(cx, name, tyre, drv, z){
+      var w = 128, y0 = G+44;
+      var s = '<rect x="'+(cx-w/2).toFixed(1)+'" y="'+y0+'" width="'+w+'" height="46" rx="5" fill="var(--surface)" fill-opacity=".92" stroke="var(--line)"/>';
+      s += tx(cx, y0+14, name+" · "+tyre.label, "middle", 11, 600);
+      s += tx(cx, y0+27, drv?"driving wheel":"free-rolling wheel", "middle", 10.5, 500, drv?"#b4601a":"#1f64b0");
+      s += tx(cx, y0+40, "Ø "+fmt(tyre.d,2)+" m · b "+fmt(tyre.b,2)+" m", "middle", 10, 400, "var(--muted)");
+      return s;
+    }
+    g += lab(W-xr,"Rear",tr,rearDrv,zr) + lab(W-xf,"Front",tf,frontDrv,zf);
+
+    // legend
+    var lx = 14;
+    g += '<circle cx="'+(lx+6)+'" cy="14" r="6" fill="#d9822b" stroke="rgba(0,0,0,.5)"/>'+tx(lx+16,18,"Driving wheel","start",10.5,400,"var(--muted)");
+    g += '<circle cx="'+(lx+120)+'" cy="14" r="6" fill="#2f7fd0" stroke="rgba(0,0,0,.5)"/>'+tx(lx+130,18,"Free-rolling wheel","start",10.5,400,"var(--muted)");
+    g += '<path d="M'+(lx+250)+' 8 h8 v8 h-8 Z" fill="#c42b3b" fill-opacity=".85"/>'+tx(lx+264,18,"Axle load","start",10.5,400,"var(--muted)");
+    g += '<path d="M'+(lx+340)+' 8 h8 v8 h-8 Z" fill="none" stroke="var(--fg)" stroke-opacity=".6" stroke-dasharray="3 2"/>'+tx(lx+354,18,"Static load","start",10.5,400,"var(--muted)");
+    g += '<circle cx="'+(lx+448)+'" cy="14" r="6" fill="none" stroke="var(--fg)" stroke-dasharray="3 2"/>'+tx(lx+458,18,"Wheel analysed","start",10.5,400,"var(--muted)");
+    $("scene").innerHTML = g;
+
+    var bits = [];
+    bits.push(CLASSES[classify(S.sand,S.silt,S.clay)].n+", "+CONDS[S.cond].name.toLowerCase()+", moisture "+fmt(S.moist,1)+"% ("+ai.label.toLowerCase()+")");
+    bits.push("cone index "+fmt(ciNow,0)+" kPa");
+    var extra = [];
+    if (nC>0) extra.push("Cracks show because the soil is drier than its reference moisture ("+fmt(soil.wref,1)+"%) and has enough clay to shrink.");
+    if (wet>0) extra.push("The water film shows moisture above the plastic limit.");
+    $("scene-note").textContent = bits.join(", ")+". Rut depth: rear "+fmt(zrT*1000,0)+" mm, front "+fmt(zfT*1000,0)+" mm"+((zrT*k>34||zfT*k>34)?" (drawn capped at the picture limit)":"")+". Tyre diameters and wheelbase are to scale; soil depth (0 to 0.5 m) and grains are schematic. Soil colour follows sand, silt and clay; it darkens with moisture; the horizontal lines get darker and denser as cone index rises. "+extra.join(" ");
+  }
+
   /* ---------- Indian regions by USDA class (indicative) ---------- */
   var INDIA = [
     {tag:"Local", note:"Arid desert and coastal dune soils.", s:[
@@ -1001,6 +1202,7 @@ Illustrative teaching model. The texture-to-parameter relations are simple corre
 
     drawTri(S,ci);
     drawRegions(ci);
+    drawScene(S,soil,att,ai,T);
     drawAtt(S,att,ai,soil);
     drawCI(S);
     drawC1(S,G,soil,opt,cur);
