@@ -12,6 +12,8 @@ The whole simulator is one file, `index.html`. There is nothing to install: open
 
 - Select the drive type (2WD, MFWD or 4WD), the rear tyre and the front tyre from typical Indian sizes, and set tractor mass, rear static weight share, wheelbase, drawbar hitch height, tyre inflation pressures and (for MFWD) front-wheel lead.
 - Set soil texture by dragging in the USDA triangle, moving the sand, silt and clay sliders, or choosing a typical composition for any of the 12 USDA classes.
+- See, beside the triangle, indicative Indian states (with major crops in brackets) for the selected USDA class, plus a map of India with those states highlighted (the full Jammu and Kashmir and Ladakh territory is shown, using Survey of India based boundary data from DataMeet) and a table for all 12 classes. These are broad soil-group generalisations, not a measured texture map.
+- See a field view of the tractor on the selected soil. Soil colour follows sand, silt and clay and darkens with moisture. Cracks appear in dry clay, a water film appears above the plastic limit, and clods appear on tilled and loose surfaces. Driving and free-rolling tyres are highlighted and drawn to scale, with arrows for the front and rear axle loads and the drawbar pull.
 - Choose a surface condition (firm, tilled or loose) and the soil moisture (% dry basis).
 - Read the Atterberg consistency state (solid, semi-solid, plastic, liquid) at the chosen moisture.
 - Optionally enter a measured cone-index profile with depth (0 to 50 cm). Its mean over 0–150 mm replaces the estimated cone index.
@@ -166,6 +168,7 @@ This is an illustrative teaching model, not a validated design tool.
 - The Brixius model was developed for pneumatic tyres on agricultural soils. It does not represent tracks, dual wheels or implement draft.
 - The whole-tractor block is a simplified estimate. Default tractor masses, weight distributions, front tyre options and tyre geometry are typical values, not data for any specific tractor model.
 - Slip sinkage, the contact-patch geometry and the stress profile are simplified.
+- The state and crop lists for each USDA class are broad generalisations from soil groups and typical surface texture, not a measured texture map. Map outlines are simplified.
 - Use measured cone index and Bekker parameters for any design, publication or decision.
 
 ## Suggested citation
