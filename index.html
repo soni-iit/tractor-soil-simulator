@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Interactive tractor wheel traction, sinkage and subsoil stress model driven by USDA soil texture, Atterberg limits and cone index.">
+<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Tractor–Soil Interaction Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-width soil panel (USDA triangle beside texture inputs), then sticky tractor controls beside readouts and three linked charts. */
+:root{
+  --bg:#eef2f6; --surface:#ffffff; --fg:#13202c; --muted:#566a7c; --line:#d3dbe3; --grid:#e3e9ef;
+  --accent:#1a62c9; --accent-soft:#dbe8fb;
+  --firm:#1a62c9; --tilled:#b4601a; --sandy:#9a7b00;
+  --red:#c42b3b; --good:#1d7f48; --warn:#a9680b; --crit:#c42b3b;
+  --gtr:#1a62c9; --mrr:#b4601a; --ntr:#1d7f48;
+  --font-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d151d; --surface:#15202b; --fg:#e5ecf3; --muted:#92a5b6; --line:#2a3846; --grid:#1f2c39;
+  --accent:#5ea4ff; --accent-soft:#1b3350;
+  --firm:#5ea4ff; --tilled:#e5934d; --sandy:#dcbb3e;
+  --red:#ff6b7a; --good:#4cc38a; --warn:#e3b341; --crit:#ff6b7a;
+  --gtr:#5ea4ff; --mrr:#e5934d; --ntr:#4cc38a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d151d; --surface:#15202b; --fg:#e5ecf3; --muted:#92a5b6; --line:#2a3846; --grid:#1f2c39;
+  --accent:#5ea4ff; --accent-soft:#1b3350;
+  --firm:#5ea4ff; --tilled:#e5934d; --sandy:#dcbb3e;
+  --red:#ff6b7a; --good:#4cc38a; --warn:#e3b341; --crit:#ff6b7a;
+  --gtr:#5ea4ff; --mrr:#e5934d; --ntr:#4cc38a; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.5;
+  padding-block:20px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;gap:6px 24px;align-items:baseline;justify-content:space-between}
+h1{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:.2px;margin:0;line-height:1.1;text-wrap:balance}
+header p{margin:0;color:var(--muted);max-width:62ch;min-width:0}
+.app{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.controls{position:sticky;top:12px;display:flex;flex-direction:column;gap:14px}
+@media (max-width:900px){.controls{position:static}}
+h2{font-family:var(--font-display);font-weight:600;font-size:15px;letter-spacing:.8px;text-transform:uppercase;margin:0 0 10px;color:var(--muted)}
+h3{font-family:var(--font-display);font-weight:600;font-size:18px;margin:0;letter-spacing:.2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+button,select{font:inherit;color:var(--fg)}
+.chip{background:transparent;border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 4px;font-size:13px;cursor:pointer;border-left:1px solid var(--line);text-align:center}
+.seg label:first-of-type{border-left:0}
+.seg input:checked+label{background:var(--accent-soft);font-weight:600}
+.seg input:focus-visible+label{outline:2px solid var(--accent);outline-offset:-2px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.field{display:grid;gap:4px}
+.field .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.field label{font-size:13px}
+.field output{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.field small{color:var(--muted);font-size:11.5px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
+select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.reset{align-self:flex-start;background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font-size:13px;text-decoration:underline}
+
+/* soil panel */
+.soil{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:20px 28px;align-items:start}
+@media (max-width:820px){.soil{grid-template-columns:minmax(0,1fr)}}
+#tri{touch-action:none;cursor:crosshair;max-width:460px;margin:0 auto}
+.soilin{display:flex;flex-direction:column;gap:14px;min-width:0}
+.classline{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.classname{font-family:var(--font-display);font-weight:700;font-size:26px;line-height:1.1}
+.classline select{width:auto;min-width:170px}
+.sliders3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:560px){.sliders3{grid-template-columns:minmax(0,1fr)}}
+.sumline{font-size:12px;color:var(--muted)}
+.att{display:grid;gap:8px}
+.att h2{margin:0}
+.attrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.attrow div{background:var(--surface);padding:6px 8px;min-width:0}
+.attrow .l{display:block;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.attrow b{font-family:var(--font-mono);font-weight:500;font-size:15px;font-variant-numeric:tabular-nums}
+.attnote{margin:0;font-size:12.5px;color:var(--muted)}
+.cip{display:grid;gap:8px;margin-top:16px}
+.cip h2{margin:0}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
+.chk input{margin-top:3px;accent-color:var(--accent)}
+.ciin{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:560px){.ciin{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ciin label{display:grid;gap:2px;font-size:11.5px;color:var(--muted)}
+.ciin input{width:100%;padding:5px 6px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--fg);font-family:var(--font-mono);font-size:13px}
+.cibtns{display:flex;gap:16px}
+
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.kpi{background:var(--surface);padding:10px 12px;min-width:0}
+.kpi .l{font-size:11.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font-family:var(--font-mono);font-size:22px;font-variant-numeric:tabular-nums;font-weight:500;line-height:1.25}
+.kpi .v span{font-size:12px;color:var(--muted);margin-left:3px}
+.kpi .h{font-size:11.5px;color:var(--muted)}
+.pill{display:inline-block;font-family:var(--font-body);font-size:11.5px;font-weight:600;border-radius:999px;padding:1px 8px;margin-left:6px;border:1px solid currentColor;vertical-align:middle}
+.pill.good{color:var(--good)}.pill.warn{color:var(--warn)}.pill.crit{color:var(--crit)}
+.advice{display:grid;gap:6px}
+.advice p{margin:0;padding:8px 12px;border-left:3px solid var(--line);background:var(--surface);border-radius:0 4px 4px 0}
+.advice p.good{border-color:var(--good)}.advice p.warn{border-color:var(--warn)}.advice p.crit{border-color:var(--crit)}
+.charthead{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px}
+svg{display:block;width:100%;height:auto}
+svg.drag{cursor:ew-resize;touch-action:pan-y}
+svg text{font-family:var(--font-mono);font-size:11px;fill:var(--muted)}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:760px){.cols{grid-template-columns:minmax(0,1fr)}}
+.note{color:var(--muted);font-size:12.5px;margin:8px 0 0}
+details{padding-top:0}
+summary{cursor:pointer;font-weight:600}
+.eq{display:grid;gap:6px;margin:10px 0;font-family:var(--font-mono);font-size:12.5px}
+.eq div{background:var(--bg);padding:6px 10px;border-radius:4px;overflow-x:auto;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500}
+footer{color:var(--muted);font-size:12px;max-width:100ch}
+@media (prefers-reduced-motion:no-preference){.pill,.chip{transition:border-color .15s,color .15s}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Tractor–Soil Interaction Simulator</h1>
+  <p>Start from soil texture: set sand, silt and clay, or click the USDA triangle. Then vary tractor load, inflation pressure, moisture and slip to see traction, sinkage and subsoil stress respond.</p>
+</header>
+
+<section class="panel soil" aria-label="Soil texture">
+  <div>
+    <h2>USDA texture triangle</h2>
+    <svg id="tri" viewBox="0 0 440 372" role="img" aria-label="USDA soil texture triangle. Click or drag to set sand, silt and clay."></svg>
+    <p class="note">Click or drag inside the triangle to set the texture. Marker shows the current composition.</p>
+    <div class="cip">
+      <h2>Cone index with depth</h2>
+      <label class="chk" for="useci"><input type="checkbox" id="useci"><span>Use my measured profile (optional). Without it, cone index is estimated from texture, moisture and consistency.</span></label>
+      <div id="ci-inputs" hidden>
+        <div class="ciin" id="ci-grid"></div>
+        <div class="cibtns" style="margin-top:8px">
+          <button class="reset" id="ci-fill" type="button">Fill from model</button>
+          <button class="reset" id="ci-clear" type="button">Clear</button>
+        </div>
+      </div>
+      <svg id="ci-svg" viewBox="0 0 440 236" role="img" aria-label="Cone index versus depth"></svg>
+      <p class="attnote" id="ci-note"></p>
+    </div>
+  </div>
+  <div class="soilin">
+    <div class="classline">
+      <div><div class="sumline">USDA texture class</div><div class="classname" id="usda-name"></div></div>
+      <div><label class="sumline" for="quick">Quick pick (typical composition)</label><select id="quick"></select></div>
+    </div>
+    <div class="sliders3">
+      <div class="field"><div class="row"><label for="sand">Sand</label><output id="o-sand"></output></div><input type="range" id="sand" min="0" max="100" step="1" value="40"></div>
+      <div class="field"><div class="row"><label for="silt">Silt</label><output id="o-silt"></output></div><input type="range" id="silt" min="0" max="100" step="1" value="40"></div>
+      <div class="field"><div class="row"><label for="clay">Clay</label><output id="o-clay"></output></div><input type="range" id="clay" min="0" max="100" step="1" value="20"></div>
+    </div>
+    <div class="sumline">The three fractions always sum to 100 %. Moving one rescales the other two in proportion.</div>
+    <div>
+      <h2>Surface condition</h2>
+      <div class="seg" role="radiogroup" aria-label="Surface condition">
+        <input type="radio" name="cond" id="cond-firm" value="firm" checked><label for="cond-firm"><span class="dot" style="background:var(--firm)"></span>Firm</label>
+        <input type="radio" name="cond" id="cond-tilled" value="tilled"><label for="cond-tilled"><span class="dot" style="background:var(--tilled)"></span>Tilled</label>
+        <input type="radio" name="cond" id="cond-loose" value="loose"><label for="cond-loose"><span class="dot" style="background:var(--sandy)"></span>Loose</label>
+      </div>
+    </div>
+    <div class="field"><div class="row"><label for="moist">Soil moisture (d.b.)</label><output id="o-moist"></output></div>
+      <input type="range" id="moist" min="3" max="50" step="0.5" value="16"><small id="moist-note"></small></div>
+    <div class="att">
+      <h2>Atterberg consistency limits</h2>
+      <svg id="att-svg" viewBox="0 0 440 112" role="img" aria-label="Atterberg consistency scale with the current moisture marked"></svg>
+      <div class="attrow" id="att-row"></div>
+      <p class="attnote" id="att-note"></p>
+    </div>
+    <div class="tblwrap"><table id="ptable"></table></div>
+  </div>
+</section>
+
+<div class="app">
+  <aside class="panel controls" aria-label="Tractor inputs">
+    <div>
+      <h2>Operating scenarios (optional)</h2>
+      <div class="chips" id="scen">
+        <button class="chip" data-s="dry">Dry firm stubble</button>
+        <button class="chip" data-s="wet">Wet, above plastic limit</button>
+        <button class="chip" data-s="seed">Tilled seedbed</button>
+        <button class="chip" data-s="soft">Soft ground, low pressure</button>
+      </div>
+      <small style="display:block;margin-top:6px;color:var(--muted);font-size:11.5px">Keeps your soil texture. Sets surface condition, moisture and tractor settings.</small>
+    </div>
+
+    <div class="field"><div class="row"><label for="load">Wheel load, W</label><output id="o-load"></output></div>
+      <input type="range" id="load" min="5" max="40" step="0.5" value="20"><small>Dynamic load on one driven tyre</small></div>
+
+    <div class="field"><div class="row"><label for="infl">Inflation pressure, p<sub>i</sub></label><output id="o-infl"></output></div>
+      <input type="range" id="infl" min="40" max="240" step="5" value="100"></div>
+
+    <div class="field"><div class="row"><label for="slip">Wheel slip, s</label><output id="o-slip"></output></div>
+      <input type="range" id="slip" min="0" max="30" step="0.5" value="10"></div>
+
+    <div class="field"><div class="row"><label for="speed">Theoretical speed, v<sub>t</sub></label><output id="o-speed"></output></div>
+      <input type="range" id="speed" min="2" max="12" step="0.5" value="7"></div>
+
+    <div class="field"><label for="tyre">Driven tyre</label>
+      <select id="tyre">
+        <option value="0">420/85R30 (b 0.42 m, d 1.52 m)</option>
+        <option value="1" selected>520/85R38 (b 0.52 m, d 1.83 m)</option>
+        <option value="2">650/65R38 (b 0.65 m, d 1.80 m)</option>
+      </select></div>
+    <button class="reset" id="reset" type="button">Reset to defaults</button>
+  </aside>
+
+  <main class="main">
+    <section class="kpis" id="kpis" aria-live="polite"></section>
+    <section class="advice" id="advice" aria-live="polite"></section>
+
+    <section class="panel">
+      <div class="charthead"><h3>Tractive efficiency against slip, <span id="c1name"></span></h3>
+        <div class="legend">
+          <span><i style="background:var(--firm)"></i>Firm</span>
+          <span><i style="background:var(--tilled)"></i>Tilled</span>
+          <span><i style="background:var(--sandy)"></i>Loose</span>
+          <span><svg width="14" height="14" viewBox="0 0 14 14" style="width:14px"><circle cx="7" cy="7" r="6" fill="var(--red)"/></svg>Optimum slip</span>
+        </div></div>
+      <svg id="c1" viewBox="0 0 640 340" role="img" aria-label="Tractive efficiency versus wheel slip for three surface conditions"></svg>
+      <p class="note">Drag on this chart to set slip. Shaded zone: left of the optimum, power is limited by motion resistance. Right of it, power is lost to wheel slip.</p>
+    </section>
+
+    <section class="panel">
+      <div class="charthead"><h3>Traction ratios, selected condition</h3>
+        <div class="legend">
+          <span><i style="background:var(--gtr)"></i>Gross traction ratio</span>
+          <span><i style="background:var(--mrr)"></i>Motion resistance ratio</span>
+          <span><i style="background:var(--ntr)"></i>Net traction ratio</span>
+        </div></div>
+      <svg id="c2" viewBox="0 0 640 300" role="img" aria-label="Gross traction, motion resistance and net traction ratios versus slip"></svg>
+    </section>
+
+    <div class="cols">
+      <section class="panel">
+        <div class="charthead"><h3>Subsoil stress with depth</h3></div>
+        <svg id="c3" viewBox="0 0 320 320" role="img" aria-label="Vertical stress under the wheel versus depth"></svg>
+        <p class="note" id="c3note"></p>
+      </section>
+      <section class="panel">
+        <div class="charthead"><h3>Rut depth</h3></div>
+        <svg id="c4" viewBox="0 0 320 150" role="img" aria-label="Rut depth schematic"></svg>
+        <p class="note" id="c4note"></p>
+      </section>
+    </div>
+
+    <section class="panel">
+      <details open>
+        <summary>Model equations</summary>
+        <div class="eq">
+          <div>B<sub>n</sub> = (CI·b·d / W) · (1 + 5δ/h) / (1 + 3b/d)</div>
+          <div>GTR = 0.88 (1 − e<sup>−0.1 B<sub>n</sub></sup>)(1 − e<sup>−7.5 s</sup>) + 0.04</div>
+          <div>MRR = 1.2 / B<sub>n</sub> + 0.04 + 0.5 s / √B<sub>n</sub></div>
+          <div>NTR = GTR − MRR &nbsp;&nbsp; TE = NTR (1 − s) / GTR</div>
+          <div>z = [ p<sub>c</sub> / (k<sub>c</sub>/b + k<sub>φ</sub>) ]<sup>1/n</sup> · (1 + 4s)</div>
+          <div>σ<sub>z</sub> = p<sub>c</sub> [ 1 − (1 / (1 + a²/z²))<sup>ν/2</sup> ]</div>
+        </div>
+        <p class="note">Brixius wheel-numeric traction model (basis of ASABE D497 / EP496 tractive performance prediction), Bekker pressure–sinkage relation and a Fröhlich stress-concentration form for subsoil stress. Tyre deflection δ is estimated from load and inflation pressure, contact length L = 2√(dδ), contact area A = πbL/4, mean contact pressure p<sub>c</sub> = W/A, and a = √(A/π).</p>
+        <p class="note">Texture to parameters: cone index at the reference moisture rises with clay and silt, CI<sub>ref</sub> = 900 + 15·clay + 4·silt (kPa, firm surface). The Bekker exponent falls and k<sub>c</sub> rises with clay, and moisture lowers CI exponentially at a rate that grows with clay and silt. Tilled and loose surfaces carry 0.5 and 0.28 of the firm cone index. Reference moisture (near field capacity) is 6 + 0.35·clay + 0.1·silt in % d.b.</p>
+        <p class="note">Atterberg limits are estimated from texture: PI = 0.65·clay + 0.06·silt − 2 (below 4 the soil is treated as non-plastic), PL = 12 + 0.22·clay + 0.10·silt, LL = PL + PI, SL = 0.55·PL, all in % d.b. Liquidity index LI = (w − PL)/PI. The limits classify the soil state and drive the warnings. They also scale the cone index: CI = CI<sub>ref</sub> · f<sub>m</sub> · f<sub>a</sub>, where f<sub>m</sub> = exp[−β(w − w<sub>FC</sub>)] limited to 0.4–2.0, and f<sub>a</sub> = 1 up to the plastic limit, falling linearly to 0.3 at the liquid limit (LI = 1) and decaying toward zero above it. Non-plastic soils keep f<sub>a</sub> = 1. A measured cone-index profile replaces this estimate: its mean over 0–150 mm is used as CI for the selected surface condition, and the other two conditions are scaled by their firm, tilled and loose ratios.</p>
+      </details>
+    </section>
+  </main>
+</div>
+<footer>Illustrative teaching model. The texture-to-parameter relations are simple correlations built from representative terramechanics values (Wong, Terramechanics), so use measured cone index and Bekker parameters for design or publication.</footer>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  var fmt = function(x,d){return Number(x).toFixed(d)};
+  var clamp = function(x,a,b){return Math.max(a,Math.min(b,x))};
+
+  /* ---------- USDA texture ---------- */
+  // Each class: polygon vertices as [sand, clay] (%), plus a typical composition [sand, silt, clay].
+  var CLASSES = [
+    {n:"Sand",            a:"S",    t:[92,5,3],    p:[[100,0],[85,0],[90,10]]},
+    {n:"Loamy sand",      a:"LS",   t:[82,12,6],   p:[[85,0],[70,0],[85,15],[90,10]]},
+    {n:"Sandy loam",      a:"SL",   t:[65,25,10],  p:[[70,0],[50,0],[43,7],[52,7],[52,20],[80,20],[85,15]]},
+    {n:"Loam",            a:"L",    t:[40,40,20],  p:[[43,7],[52,7],[52,20],[45,27],[23,27]]},
+    {n:"Silt loam",       a:"SiL",  t:[20,65,15],  p:[[50,0],[20,0],[8,12],[0,12],[0,27],[23,27],[43,7]]},
+    {n:"Silt",            a:"Si",   t:[8,87,5],    p:[[20,0],[0,0],[0,12],[8,12]]},
+    {n:"Sandy clay loam", a:"SCL",  t:[60,13,27],  p:[[80,20],[52,20],[45,27],[45,35],[65,35]]},
+    {n:"Clay loam",       a:"CL",   t:[33,34,33],  p:[[45,27],[20,27],[20,40],[45,40]]},
+    {n:"Silty clay loam", a:"SiCL", t:[10,56,34],  p:[[20,27],[0,27],[0,40],[20,40]]},
+    {n:"Sandy clay",      a:"SC",   t:[52,6,42],   p:[[65,35],[45,35],[45,55]]},
+    {n:"Silty clay",      a:"SiC",  t:[6,47,47],   p:[[0,40],[20,40],[0,60]]},
+    {n:"Clay",            a:"C",    t:[22,20,58],  p:[[20,40],[45,40],[45,55],[0,100],[0,60]]}
+  ];
+  function classify(sa,si,cl){
+    var n;
+    if (si+1.5*cl<15) n="Sand";
+    else if (si+1.5*cl>=15 && si+2*cl<30) n="Loamy sand";
+    else if ((cl>=7 && cl<20 && sa>52 && si+2*cl>=30) || (cl<7 && si<50 && si+2*cl>=30)) n="Sandy loam";
+    else if (cl>=7 && cl<27 && si>=28 && si<50 && sa<=52) n="Loam";
+    else if ((si>=50 && cl>=12 && cl<27) || (si>=50 && si<80 && cl<12)) n="Silt loam";
+    else if (si>=80 && cl<12) n="Silt";
+    else if (cl>=20 && cl<35 && si<28 && sa>45) n="Sandy clay loam";
+    else if (cl>=27 && cl<40 && sa>20 && sa<=45) n="Clay loam";
+    else if (cl>=27 && cl<40 && sa<=20) n="Silty clay loam";
+    else if (cl>=35 && sa>45) n="Sandy clay";
+    else if (cl>=40 && si>=40) n="Silty clay";
+    else if (cl>=40 && sa<=45 && si<40) n="Clay";
+    else n="Loam";
+    for (var i=0;i<CLASSES.length;i++) if (CLASSES[i].n===n) return i;
+    return 3;
+  }
+
+  /* ---------- texture to soil parameters ---------- */
+  var CONDS = {
+    firm:  {name:"Firm",   color:"var(--firm)",  mult:1.0,  nu:4},
+    tilled:{name:"Tilled", color:"var(--tilled)",mult:0.5,  nu:5},
+    loose: {name:"Loose",  color:"var(--sandy)", mult:0.28, nu:5}
+  };
+  function soilFor(S, ck){
+    var sa=S.sand, si=S.silt, cl=S.clay, c=CONDS[ck];
+    var CI0 = 900 + 15*cl + 4*si;
+    var meas = measuredCI(S);
+    return {
+      name:c.name, color:c.color, cond:ck,
+      CIfirm:CI0, CIref:CI0*c.mult,
+      CImeas: meas==null ? null : meas*c.mult/CONDS[S.cond].mult,
+      att: attOf(S),
+      wref:6 + 0.35*cl + 0.1*si,
+      beta:0.025 + 0.0012*cl + 0.0006*si,
+      n:clamp(1.1 - 0.01*cl - 0.002*si, 0.45, 1.1),
+      kc:0.99 + 0.2*cl + 0.06*si,
+      kphi:Math.max(600, 1528 - 14*cl - 2*si),
+      nu:c.nu
+    };
+  }
+  // Cone index in the 0-150 mm layer: measured profile if supplied, else texture/moisture/consistency estimate.
+  function ciOf(soil, w){
+    if (soil.CImeas!=null) return soil.CImeas;
+    var fm = clamp(Math.exp(-soil.beta*(w - soil.wref)), 0.4, 2.0);
+    var a = soil.att, fa = 1;
+    if (!a.np){
+      var li = (w - a.PL)/a.PI;
+      if (li>0) fa = li<=1 ? 1-0.7*li : 0.3*Math.exp(-3*(li-1));
+    }
+    return Math.max(100, soil.CIref*fm*fa);
+  }
+
+  /* ---------- measured cone index profile ---------- */
+  var CI_DEPTHS = [0,5,10,15,20,30,40,50]; // cm
+  var CI_IDS = CI_DEPTHS.map(function(d,i){return "ci"+i});
+  function ciPoints(S){
+    var pts=[];
+    (S.ci||[]).forEach(function(v,i){ if (isFinite(v) && v>=0) pts.push({z:CI_DEPTHS[i], v:v}); });
+    return pts;
+  }
+  function ciAt(pts,z){
+    if (z<=pts[0].z) return pts[0].v;
+    for (var i=1;i<pts.length;i++){
+      if (z<=pts[i].z){ var t=(z-pts[i-1].z)/(pts[i].z-pts[i-1].z); return pts[i-1].v + t*(pts[i].v-pts[i-1].v); }
+    }
+    return pts[pts.length-1].v;
+  }
+  function meanTop(pts){
+    var n=60, s=0; for (var i=0;i<n;i++) s += ciAt(pts, (i+0.5)*15/n);
+    return s/n;
+  }
+  function measuredCI(S){
+    if (!S.useCI) return null;
+    var pts = ciPoints(S);
+    return pts.length>=2 ? meanTop(pts) : null;
+  }
+  var PROFILE_B = {firm:4, tilled:3, loose:3};
+  function modelProfileAt(e, cond, zcm){
+    var b = PROFILE_B[cond], a = 1 - 0.075*b;
+    return e*(a + b*zcm/100);
+  }
+
+  var TYRES = [
+    {b:0.42, d:1.52, ar:0.85},
+    {b:0.52, d:1.83, ar:0.85},
+    {b:0.65, d:1.80, ar:0.65}
+  ];
+  var DEFAULTS = {sand:40, silt:40, clay:20, cond:"firm", moist:16, load:20, infl:100, slip:10, speed:7, tyre:1};
+  // Scenarios keep the chosen texture. Moisture is set relative to that soil's field capacity and Atterberg limits.
+  var SCEN = {
+    dry:  {cond:"firm",  load:20, infl:100, slip:8,  speed:7, tyre:1, moist:function(w,a){return 0.75*w}},
+    wet:  {cond:"firm",  load:25, infl:120, slip:15, speed:5, tyre:1, moist:function(w,a){return a.np ? 1.8*w : a.PL+0.3*a.PI}},
+    seed: {cond:"tilled",load:20, infl:80,  slip:12, speed:7, tyre:1, moist:function(w,a){return 0.9*w}},
+    soft: {cond:"loose", load:18, infl:60,  slip:18, speed:6, tyre:0, moist:function(w,a){return 0.8*w}}
+  };
+  function scenarioState(key){
+    var S = readState(), sc = SCEN[key];
+    var wfc = 6 + 0.35*S.clay + 0.1*S.silt;
+    var m = clamp(Math.round(sc.moist(wfc, attOf(S))*2)/2, 3, 50);
+    return {sand:S.sand, silt:S.silt, clay:S.clay, cond:sc.cond, moist:m, load:sc.load, infl:sc.infl, slip:sc.slip, speed:sc.speed, tyre:sc.tyre};
+  }
+  var NUM = ["sand","silt","clay","moist","load","infl","slip","speed","tyre"];
+
+  function readState(){
+    var S = {cond: document.querySelector('input[name="cond"]:checked').value};
+    NUM.forEach(function(k){ S[k] = +$(k).value; });
+    S.useCI = $("useci").checked;
+    S.ci = CI_IDS.map(function(id){ return parseFloat($(id).value); });
+    return S;
+  }
+  function writeState(s){
+    document.getElementById("cond-"+s.cond).checked = true;
+    NUM.forEach(function(k){ $(k).value = s[k]; });
+    $("useci").checked = false; $("ci-inputs").hidden = true;
+    update();
+  }
+  function setComp(changed, v){
+    var keys = ["sand","silt","clay"], others = keys.filter(function(k){return k!==changed});
+    var a = +$(others[0]).value, b = +$(others[1]).value, rest = 100 - v;
+    if (a+b===0){ a = rest/2; b = rest/2; } else { var na = a/(a+b)*rest; b = rest - Math.round(na); a = Math.round(na); }
+    $(changed).value = v; $(others[0]).value = a; $(others[1]).value = b;
+  }
+
+  /* ---------- tractor / soil model ---------- */
+  function tyreGeom(S){
+    var t = TYRES[S.tyre];
+    var h = t.ar*t.b;
+    var dh = clamp(0.15*(S.load/20)*Math.pow(100/S.infl,0.85), 0.04, 0.35);
+    var delta = dh*h;
+    var L = 2*Math.sqrt(t.d*delta);
+    var A = Math.PI*t.b*L/4;
+    return {b:t.b, d:t.d, h:h, dh:dh, delta:delta, L:L, A:A, pc:S.load/A};
+  }
+  function traction(soil, S, G, sPct){
+    var s = sPct/100;
+    var CI = ciOf(soil, S.moist);
+    var Bn = (CI*G.b*G.d/S.load) * (1+5*G.dh)/(1+3*G.b/G.d);
+    var GTR = 0.88*(1-Math.exp(-0.1*Bn))*(1-Math.exp(-7.5*s)) + 0.04;
+    var MRR = 1.2/Bn + 0.04 + 0.5*s/Math.sqrt(Bn);
+    var NTR = GTR - MRR;
+    var TE = clamp(NTR*(1-s)/GTR, 0, 1);
+    return {CI:CI, Bn:Bn, GTR:GTR, MRR:MRR, NTR:NTR, TE:TE};
+  }
+  function optimum(soil, S, G){
+    var best = {s:0, te:-1};
+    for (var s=0.5; s<=30; s+=0.25){
+      var r = traction(soil,S,G,s);
+      if (r.TE>best.te) best = {s:s, te:r.TE};
+    }
+    return best;
+  }
+  function sinkage(soil, S, G, sPct){
+    var kscale = clamp(ciOf(soil,S.moist)/soil.CIfirm, 0.1, 3);
+    var k = (soil.kc/G.b + soil.kphi)*kscale;
+    var z0 = Math.pow(G.pc/k, 1/soil.n);
+    return z0*(1+4*sPct/100);
+  }
+  function stressAt(soil, S, G, z){
+    var a = Math.sqrt(G.A/Math.PI);
+    var nu = clamp(soil.nu - 0.08*(S.moist-soil.wref), 2.5, 6);
+    return G.pc*(1 - Math.pow(1/(1+(a*a)/(z*z)), nu/2));
+  }
+
+  /* ---------- chart helpers ---------- */
+  function frame(o){
+    var xs=function(v){return o.ml+(v-o.x0)/(o.x1-o.x0)*(o.W-o.ml-o.mr)};
+    var ys=function(v){return o.mt+(1-(v-o.y0)/(o.y1-o.y0))*(o.H-o.mt-o.mb)};
+    return {xs:xs, ys:ys};
+  }
+  function axes(o, f){
+    var g="";
+    o.yt.forEach(function(t){
+      g += '<line x1="'+o.ml+'" x2="'+(o.W-o.mr)+'" y1="'+f.ys(t)+'" y2="'+f.ys(t)+'" stroke="var(--grid)"/>';
+      g += '<text x="'+(o.ml-8)+'" y="'+(f.ys(t)+4)+'" text-anchor="end">'+(o.fy?o.fy(t):t)+'</text>';
+    });
+    o.xt.forEach(function(t){
+      g += '<line x1="'+f.xs(t)+'" x2="'+f.xs(t)+'" y1="'+o.mt+'" y2="'+(o.H-o.mb)+'" stroke="var(--grid)"/>';
+      g += '<text x="'+f.xs(t)+'" y="'+(o.H-o.mb+16)+'" text-anchor="middle">'+(o.fx?o.fx(t):t)+'</text>';
+    });
+    g += '<line x1="'+o.ml+'" x2="'+(o.W-o.mr)+'" y1="'+(o.H-o.mb)+'" y2="'+(o.H-o.mb)+'" stroke="var(--muted)"/>';
+    g += '<line x1="'+o.ml+'" x2="'+o.ml+'" y1="'+o.mt+'" y2="'+(o.H-o.mb)+'" stroke="var(--muted)"/>';
+    g += '<text x="'+((o.ml+o.W-o.mr)/2)+'" y="'+(o.H-6)+'" text-anchor="middle">'+o.xl+'</text>';
+    g += '<text transform="translate(12,'+((o.mt+o.H-o.mb)/2)+') rotate(-90)" text-anchor="middle">'+o.yl+'</text>';
+    return g;
+  }
+  function path(pts){
+    return pts.map(function(p,i){return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)}).join(' ');
+  }
+  var SL = []; for (var q=0;q<=30;q+=0.5) SL.push(q);
+
+  /* ---------- USDA triangle ---------- */
+  var TRI = {W:440,H:372,BL:[64,310],BR:[364,310],TOP:[214,310-300*Math.sqrt(3)/2]};
+  function triPt(sa,cl){
+    var si = 100-sa-cl;
+    return [(TRI.BL[0]*sa + TRI.BR[0]*si + TRI.TOP[0]*cl)/100,
+            (TRI.BL[1]*sa + TRI.BR[1]*si + TRI.TOP[1]*cl)/100];
+  }
+  function drawTri(S, ci){
+    var g = "";
+    CLASSES.forEach(function(c,i){
+      var pts = c.p.map(function(v){return triPt(v[0],v[1])});
+      var sel = i===ci;
+      g += '<path d="'+path(pts)+' Z" fill="var(--accent)" fill-opacity="'+(sel?0.3:0.05)+'" stroke="var(--muted)" stroke-width="1" stroke-linejoin="round"/>';
+    });
+    CLASSES.forEach(function(c,i){
+      var sx=0, sy=0; c.p.forEach(function(v){var p=triPt(v[0],v[1]); sx+=p[0]; sy+=p[1];});
+      sx/=c.p.length; sy/=c.p.length;
+      if (c.a==="Si"){ sx += 2; sy -= 8; }
+      if (c.a==="S"){ sx += 2; sy += 2; }
+      if (c.a==="LS"){ sy += 1; }
+      g += '<text x="'+sx.toFixed(1)+'" y="'+(sy+3.5).toFixed(1)+'" text-anchor="middle" style="fill:var(--fg);font-size:10.5px;'+(i===ci?'font-weight:600;':'opacity:.75;')+'">'+c.a+'</text>';
+    });
+    // tick labels and axis titles
+    for (var t=10;t<=90;t+=10){
+      var L = [TRI.BL[0]+(TRI.TOP[0]-TRI.BL[0])*t/100, TRI.BL[1]+(TRI.TOP[1]-TRI.BL[1])*t/100];
+      g += '<text x="'+(L[0]-8)+'" y="'+(L[1]+4)+'" text-anchor="end">'+t+'</text>';
+      var R = [TRI.TOP[0]+(TRI.BR[0]-TRI.TOP[0])*t/100, TRI.TOP[1]+(TRI.BR[1]-TRI.TOP[1])*t/100];
+      g += '<text x="'+(R[0]+8)+'" y="'+(R[1]+4)+'" text-anchor="start">'+t+'</text>';
+      var B = [TRI.BR[0]+(TRI.BL[0]-TRI.BR[0])*t/100, TRI.BR[1]];
+      g += '<text x="'+B[0]+'" y="'+(B[1]+16)+'" text-anchor="middle">'+t+'</text>';
+    }
+    g += '<text transform="translate(78,160) rotate(-60)" text-anchor="middle" style="font-size:12px;fill:var(--fg)">Clay (%) →</text>';
+    g += '<text transform="translate(350,160) rotate(60)" text-anchor="middle" style="font-size:12px;fill:var(--fg)">Silt (%) →</text>';
+    g += '<text x="'+((TRI.BL[0]+TRI.BR[0])/2)+'" y="354" text-anchor="middle" style="font-size:12px;fill:var(--fg)">← Sand (%)</text>';
+    var p = triPt(S.sand, S.clay);
+    g += '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="8" fill="var(--red)" stroke="var(--surface)" stroke-width="2.5"/>';
+    g += '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="2.5" fill="var(--surface)"/>';
+    $("tri").innerHTML = g;
+  }
+
+  /* ---------- Atterberg limits ---------- */
+  function attOf(S){
+    var cl=S.clay, si=S.silt;
+    var PI = Math.max(0, 0.65*cl + 0.06*si - 2);
+    var PL = 12 + 0.22*cl + 0.10*si;
+    return {np: PI<4, PI:PI, PL:PL, LL:PL+PI, SL:0.55*PL};
+  }
+  function attInfo(a,w){
+    if (a.np) return {key:"np", label:"Non-plastic", tone:"good", li:null,
+      text:"This texture has no plastic range. Strength depends on density, confinement and moisture suction rather than cohesion."};
+    var li = (w-a.PL)/a.PI;
+    if (w<a.SL) return {key:"solid", label:"Solid", tone:"warn", li:li,
+      text:"Below the shrinkage limit the soil is hard and brittle. Expect high draft, clods and a high cone index."};
+    if (w<a.PL) return {key:"semi", label:"Semi-solid (friable)", tone:"good", li:li,
+      text:"Between the shrinkage and plastic limits the soil is friable. This is the best window for tillage and traction."};
+    if (w<a.LL) return {key:"plastic", label:"Plastic", tone:"warn", li:li,
+      text:"Above the plastic limit the soil smears and sticks, loses strength and compacts under wheel passes. Delay field work if possible."};
+    return {key:"liquid", label:"Liquid", tone:"crit", li:li,
+      text:"Above the liquid limit the soil flows and has almost no bearing capacity. Wheels sink and traction collapses."};
+  }
+  function drawAtt(S,a,ai,soil){
+    var W=440, ml=10, mr=10, barY=36, barH=24;
+    var max = Math.max(45, a.np?0:a.LL*1.12, S.moist*1.05);
+    var xs = function(w){return ml + w/max*(W-ml-mr)};
+    var g = '';
+    var segs = a.np ? [[0,max,"Non-plastic (cohesionless)","var(--muted)",0.2]] : [
+      [0,a.SL,"Solid","var(--muted)",0.28],
+      [a.SL,a.PL,"Semi-solid","var(--sandy)",0.38],
+      [a.PL,a.LL,"Plastic","var(--tilled)",0.38],
+      [a.LL,max,"Liquid","var(--accent)",0.38]];
+    segs.forEach(function(s){
+      var x0=xs(s[0]), x1=xs(s[1]);
+      g += '<rect x="'+x0.toFixed(1)+'" y="'+barY+'" width="'+Math.max(0,x1-x0).toFixed(1)+'" height="'+barH+'" fill="'+s[3]+'" fill-opacity="'+s[4]+'"/>';
+      if (x1-x0 > 52) g += '<text x="'+((x0+x1)/2).toFixed(1)+'" y="'+(barY+barH/2+4)+'" text-anchor="middle" style="fill:var(--fg);font-size:10.5px">'+s[2]+'</text>';
+    });
+    g += '<rect x="'+ml+'" y="'+barY+'" width="'+(W-ml-mr)+'" height="'+barH+'" fill="none" stroke="var(--muted)"/>';
+    if (!a.np){
+      [["SL",a.SL,"middle",0],["PL",a.PL,"end",-3],["LL",a.LL,"start",3]].forEach(function(t){
+        var x = xs(t[1]);
+        g += '<line x1="'+x.toFixed(1)+'" x2="'+x.toFixed(1)+'" y1="'+barY+'" y2="'+(barY+barH+5)+'" stroke="var(--fg)" stroke-opacity="0.7"/>';
+        g += '<text x="'+(x+t[3]).toFixed(1)+'" y="'+(barY+barH+17)+'" text-anchor="'+t[2]+'" style="fill:var(--fg)">'+t[0]+' '+fmt(t[1],0)+'</text>';
+      });
+    }
+    var fx = xs(soil.wref);
+    g += '<line x1="'+fx.toFixed(1)+'" x2="'+fx.toFixed(1)+'" y1="'+(barY+barH-6)+'" y2="'+(barY+barH+30)+'" stroke="var(--muted)" stroke-dasharray="3 3"/>';
+    g += '<text x="'+fx.toFixed(1)+'" y="'+(barY+barH+42)+'" text-anchor="middle">field capacity '+fmt(soil.wref,0)+'</text>';
+    var mx = xs(S.moist);
+    g += '<path d="M'+(mx-6).toFixed(1)+' 17 L'+(mx+6).toFixed(1)+' 17 L'+mx.toFixed(1)+' '+(barY-1)+' Z" fill="var(--red)"/>';
+    var tx = clamp(mx, 40, W-40);
+    g += '<text x="'+tx.toFixed(1)+'" y="11" text-anchor="middle" style="fill:var(--fg);font-size:11.5px">w = '+fmt(S.moist,1)+' %</text>';
+    $("att-svg").innerHTML = g;
+    var cell = function(l,v){return '<div><span class="l">'+l+'</span><b>'+v+'</b></div>'};
+    $("att-row").innerHTML = a.np
+      ? cell("SL","—")+cell("PL","—")+cell("LL","—")+cell("PI","NP")+cell("LI","—")
+      : cell("SL",fmt(a.SL,1))+cell("PL",fmt(a.PL,1))+cell("LL",fmt(a.LL,1))+cell("PI",fmt(a.PI,1))+cell("LI",fmt(ai.li,2));
+    $("att-note").innerHTML = '<span class="pill '+ai.tone+'" style="margin:0 6px 0 0">'+ai.label+'</span>'+ai.text;
+  }
+
+  function drawCI(S){
+    var sm = soilFor(Object.assign({}, S, {useCI:false}), S.cond);
+    var CImod = ciOf(sm, S.moist);
+    var pts = ciPoints(S), measured = S.useCI && pts.length>=2;
+    var f = measured ? function(z){return ciAt(pts,z)} : function(z){return modelProfileAt(CImod,S.cond,z)};
+    var mean = measured ? meanTop(pts) : CImod;
+    var maxv = 0, rootZ = null;
+    for (var z=0; z<=50; z+=0.5){ var v=f(z); maxv=Math.max(maxv,v); if (rootZ===null && v>=2000) rootZ=z; }
+    var x1 = Math.max(2500, Math.ceil(maxv*1.1/500)*500), step = x1>5000?1000:500, xt=[];
+    for (var t=0;t<=x1;t+=step) xt.push(t);
+    var o = {W:440,H:236,ml:44,mr:14,mt:14,mb:44,x0:0,x1:x1,y0:0,y1:50,xt:xt,yt:[0,10,20,30,40,50],
+      xl:"Cone index (kPa)",yl:"Depth (cm)"};
+    var fr = frame(o);
+    var ys = function(zz){return o.mt + (zz/50)*(o.H-o.mt-o.mb)};
+    fr.ys = ys;
+    var g = axes(o,fr);
+    g += '<rect x="'+o.ml+'" y="'+ys(0)+'" width="'+(o.W-o.ml-o.mr)+'" height="'+(ys(15)-ys(0))+'" fill="var(--accent)" fill-opacity="0.09"/>';
+    g += '<text x="'+(o.W-o.mr-4)+'" y="'+(ys(15)-4)+'" text-anchor="end">0–15 cm traction layer</text>';
+    if (2000<=x1){
+      g += '<line x1="'+fr.xs(2000)+'" x2="'+fr.xs(2000)+'" y1="'+o.mt+'" y2="'+(o.H-o.mb)+'" stroke="var(--warn)" stroke-dasharray="4 3"/>';
+      g += '<text x="'+(fr.xs(2000)+4)+'" y="'+(o.H-o.mb-6)+'" style="fill:var(--warn)">2000 kPa</text>';
+    }
+    var line=[]; for (var zz=0; zz<=50; zz+=1) line.push([fr.xs(f(zz)), ys(zz)]);
+    g += '<path d="'+path(line)+'" fill="none" stroke="var(--accent)" stroke-width="2.8" stroke-linejoin="round"'+(measured?'':' stroke-dasharray="6 4"')+'/>';
+    if (measured) pts.forEach(function(p){ g += '<circle cx="'+fr.xs(p.v)+'" cy="'+ys(p.z)+'" r="4.5" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.2"/>'; });
+    var mx = fr.xs(mean);
+    g += '<line x1="'+mx+'" x2="'+mx+'" y1="'+ys(0)+'" y2="'+ys(15)+'" stroke="var(--red)" stroke-width="3"/>';
+    var left = mx > o.W*0.6;
+    g += '<text x="'+(left?mx-8:mx+8)+'" y="'+(ys(7.5)+4)+'" text-anchor="'+(left?'end':'start')+'" style="fill:var(--fg);font-size:11.5px">mean '+fmt(mean,0)+' kPa</text>';
+    $("ci-svg").innerHTML = g;
+    var note = '<b>Mean CI, 0–150 mm: '+fmt(mean,0)+' kPa</b> ('+(measured?'measured; model estimate '+fmt(CImod,0)+' kPa':'modelled from texture, moisture and consistency; dashed')+'). ';
+    if (S.useCI && !measured) note += 'Enter at least two depths to use a measured profile. ';
+    note += rootZ===null ? 'CI stays below 2000 kPa to 50 cm.' : (rootZ<=0.5 ? 'CI is already above 2000 kPa at the surface.' : 'CI reaches 2000 kPa at about '+fmt(rootZ,0)+' cm, a common root-restricting level.');
+    $("ci-note").innerHTML = note;
+  }
+
+  /* ---------- render ---------- */
+  function update(){
+    var S = readState();
+    var ci = classify(S.sand,S.silt,S.clay);
+    var soil = soilFor(S, S.cond);
+    var G = tyreGeom(S);
+    var cur = traction(soil,S,G,S.slip);
+    var opt = optimum(soil,S,G);
+    var sink = sinkage(soil,S,G,S.slip);
+    var s400 = stressAt(soil,S,G,0.4);
+    var vAct = S.speed/3.6*(1-S.slip/100);
+    var DP = cur.NTR*S.load;
+    var Pdb = Math.max(0, DP*vAct);
+    var att = attOf(S), ai = attInfo(att, S.moist);
+
+    $("o-sand").textContent = S.sand+" %";
+    $("o-silt").textContent = S.silt+" %";
+    $("o-clay").textContent = S.clay+" %";
+    $("usda-name").textContent = CLASSES[ci].n;
+    $("c1name").textContent = CLASSES[ci].n.toLowerCase();
+    $("quick").value = String(ci);
+    $("o-moist").textContent = fmt(S.moist,1)+" %";
+    $("o-load").textContent  = fmt(S.load,1)+" kN";
+    $("o-infl").textContent  = fmt(S.infl,0)+" kPa";
+    $("o-slip").textContent  = fmt(S.slip,1)+" %";
+    $("o-speed").textContent = fmt(S.speed,1)+" km/h";
+    var dw = S.moist - soil.wref;
+    $("moist-note").textContent = (soil.CImeas!=null ? "Strength now comes from your measured cone index, not moisture. " : "") + "Reference (near field capacity) for this texture: "+fmt(soil.wref,1)+" %. Currently "+(Math.abs(dw)<1.5?"near it":(dw>0?fmt(dw,1)+" points wetter":fmt(-dw,1)+" points drier"))+".";
+
+    var risk = s400<50 ? ["good","Low"] : (s400<100 ? ["warn","Moderate"] : ["crit","High"]);
+    var K = [
+      ["Tractive efficiency", fmt(cur.TE*100,1), "%", "Optimum "+fmt(opt.te*100,1)+"% at "+fmt(opt.s,1)+"% slip"],
+      ["Net traction ratio", fmt(cur.NTR,3), "", "Drawbar pull per unit load"],
+      ["Drawbar pull", fmt(Math.max(DP,0),2), "kN", "Per driven wheel"],
+      ["Drawbar power", fmt(Pdb,2), "kW", "At "+fmt(vAct*3.6,2)+" km/h actual"],
+      ["Mobility number, B<sub>n</sub>", fmt(cur.Bn,1), "", "Cone index "+fmt(cur.CI,0)+" kPa"],
+      ["Rut depth", fmt(sink*1000,0), "mm", "Including slip sinkage"],
+      ["Mean contact pressure", fmt(G.pc,0), "kPa", "Contact area "+fmt(G.A,3)+" m²"],
+      ["Stress at 0.4 m", fmt(s400,0)+'<span style="margin:0">&nbsp;kPa</span>', '<b class="pill '+risk[0]+'">'+risk[1]+'</b>', "Compaction risk"]
+    ];
+    $("kpis").innerHTML = K.map(function(k){
+      var unit = k[2] ? (k[2].indexOf("<b")===0 ? k[2] : '<span>'+k[2]+'</span>') : '';
+      return '<div class="kpi"><div class="l">'+k[0]+'</div><div class="v">'+k[1]+unit+'</div><div class="h">'+k[3]+'</div></div>';
+    }).join("");
+
+    var adv = [];
+    var diff = S.slip - opt.s;
+    if (diff < -2.5) adv.push(["warn","Slip is "+fmt(-diff,1)+" points below the optimum. Efficiency is limited by motion resistance. Pull a heavier implement or reduce ballast to move toward "+fmt(opt.s,1)+"%."]);
+    else if (diff > 3) adv.push(["warn","Slip is "+fmt(diff,1)+" points above the optimum. Power is being lost to wheel slip. Add ballast, lower the draft or reduce inflation pressure to widen the contact patch."]);
+    else adv.push(["good","Operating within about 3 points of the optimum slip for this soil and tyre set-up."]);
+    if (S.moist - soil.wref > 6 && S.clay >= 25) adv.push(["warn","This "+CLASSES[ci].n.toLowerCase()+" is "+fmt(S.moist-soil.wref,0)+" points wetter than its reference moisture. Cone index drops sharply in fine-textured soil at this level, so expect higher sinkage and lower pull."]);
+    if (sink > 0.08) adv.push(["warn","Rut depth is "+fmt(sink*1000,0)+" mm. Sinkage this deep raises motion resistance and signals a soil too weak for this load."]);
+    if (risk[0] !== "good") adv.push([risk[0], "Vertical stress at 0.4 m is "+fmt(s400,0)+" kPa. Reduce wheel load or inflation pressure, or use a wider tyre, to limit subsoil compaction."]);
+    if (ai.key==="plastic" || ai.key==="liquid") adv.push([ai.tone, "Moisture is "+fmt(S.moist,1)+" %, "+(ai.key==="liquid"?"above the liquid limit of ":"above the plastic limit of ")+fmt(ai.key==="liquid"?att.LL:att.PL,1)+" %. "+(ai.key==="liquid"?"Trafficability is lost, so do not run the tractor on this soil.":"Wheel passes will smear and compact this soil, so wait for it to drain below the plastic limit.")]);
+    else if (ai.key==="solid") adv.push(["warn","Moisture is below the shrinkage limit of "+fmt(att.SL,1)+" %. Tillage draft will be high and the soil will break into clods."]);
+    $("advice").innerHTML = adv.map(function(a){return '<p class="'+a[0]+'">'+a[1]+'</p>'}).join("");
+
+    drawTri(S,ci);
+    drawAtt(S,att,ai,soil);
+    drawCI(S);
+    drawC1(S,G,soil,opt,cur);
+    drawC2(S,G,soil,cur);
+    drawC3(S,G,soil,s400);
+    drawC4(S,G,soil,sink);
+    drawTable(S,G,soil);
+  }
+
+  function drawC1(S,G,soil,opt,cur){
+    var o = {W:640,H:340,ml:52,mr:20,mt:16,mb:44,x0:0,x1:30,y0:0,y1:100,
+      xt:[0,5,10,15,20,25,30],yt:[0,20,40,60,80,100],xl:"Wheel slip (%)",yl:"Tractive efficiency (%)"};
+    var f = frame(o), g = axes(o,f);
+    var curves = {};
+    Object.keys(CONDS).forEach(function(k){
+      var sk = soilFor(S,k);
+      curves[k] = SL.map(function(s){return [f.xs(s), f.ys(traction(sk,S,G,s).TE*100)]});
+    });
+    var shade = [[f.xs(0), f.ys(0)]];
+    SL.forEach(function(s,i){ if (s<=opt.s) shade.push(curves[S.cond][i]); });
+    shade.push([f.xs(opt.s), f.ys(traction(soil,S,G,opt.s).TE*100)]);
+    shade.push([f.xs(opt.s), f.ys(0)]);
+    g += '<path d="'+path(shade)+' Z" fill="var(--accent)" fill-opacity="0.16"/>';
+    Object.keys(CONDS).forEach(function(k){
+      var sel = k===S.cond;
+      g += '<path d="'+path(curves[k])+'" fill="none" stroke="'+CONDS[k].color+'" stroke-width="'+(sel?3.2:1.8)+'" stroke-opacity="'+(sel?1:0.65)+'" stroke-linejoin="round"/>';
+    });
+    Object.keys(CONDS).forEach(function(k){
+      var op = optimum(soilFor(S,k),S,G);
+      var cx = f.xs(op.s), cy = f.ys(op.te*100);
+      g += '<circle cx="'+cx+'" cy="'+cy+'" r="10" fill="var(--red)"/>';
+      g += '<text x="'+cx+'" y="'+(cy+3.5)+'" text-anchor="middle" style="fill:#fff;font-size:10px;font-weight:500">'+fmt(op.s,0)+'</text>';
+    });
+    var px = f.xs(S.slip), py = f.ys(cur.TE*100);
+    g += '<line x1="'+px+'" x2="'+px+'" y1="'+o.mt+'" y2="'+(o.H-o.mb)+'" stroke="var(--fg)" stroke-dasharray="4 4" stroke-opacity="0.6"/>';
+    g += '<circle cx="'+px+'" cy="'+py+'" r="6" fill="var(--surface)" stroke="var(--fg)" stroke-width="2.5"/>';
+    var right = px > 460;
+    g += '<text x="'+(right?px-10:px+10)+'" y="'+(py>60?py-12:py+22)+'" text-anchor="'+(right?'end':'start')+'" style="fill:var(--fg);font-size:12px">TE '+fmt(cur.TE*100,1)+'% at s = '+fmt(S.slip,1)+'%</text>';
+    g += '<rect x="'+o.ml+'" y="'+o.mt+'" width="'+(o.W-o.ml-o.mr)+'" height="'+(o.H-o.mt-o.mb)+'" fill="transparent"/>';
+    $("c1").innerHTML = g;
+    $("c1")._f = {ml:o.ml, mr:o.mr, W:o.W, x0:o.x0, x1:o.x1};
+  }
+
+  function drawC2(S,G,soil,cur){
+    var o = {W:640,H:300,ml:52,mr:20,mt:16,mb:44,x0:0,x1:30,y0:-0.1,y1:1,
+      xt:[0,5,10,15,20,25,30],yt:[0,0.2,0.4,0.6,0.8,1],fy:function(t){return t.toFixed(1)},xl:"Wheel slip (%)",yl:"Traction ratio (–)"};
+    var f = frame(o), g = axes(o,f);
+    var gtr=[],mrr=[],ntr=[];
+    SL.forEach(function(s){
+      var r = traction(soil,S,G,s);
+      gtr.push([f.xs(s),f.ys(r.GTR)]); mrr.push([f.xs(s),f.ys(r.MRR)]); ntr.push([f.xs(s),f.ys(r.NTR)]);
+    });
+    g += '<line x1="'+o.ml+'" x2="'+(o.W-o.mr)+'" y1="'+f.ys(0)+'" y2="'+f.ys(0)+'" stroke="var(--muted)" stroke-dasharray="2 3"/>';
+    g += '<path d="'+path(gtr)+'" fill="none" stroke="var(--gtr)" stroke-width="2.4"/>';
+    g += '<path d="'+path(mrr)+'" fill="none" stroke="var(--mrr)" stroke-width="2.4"/>';
+    g += '<path d="'+path(ntr)+'" fill="none" stroke="var(--ntr)" stroke-width="2.8"/>';
+    var px = f.xs(S.slip);
+    g += '<line x1="'+px+'" x2="'+px+'" y1="'+o.mt+'" y2="'+(o.H-o.mb)+'" stroke="var(--fg)" stroke-dasharray="4 4" stroke-opacity="0.6"/>';
+    [[cur.GTR,"var(--gtr)"],[cur.MRR,"var(--mrr)"],[cur.NTR,"var(--ntr)"]].forEach(function(p){
+      g += '<circle cx="'+px+'" cy="'+f.ys(p[0])+'" r="5" fill="var(--surface)" stroke="'+p[1]+'" stroke-width="2.5"/>';
+    });
+    var right = px > 440;
+    g += '<text x="'+(right?px-10:px+10)+'" y="'+(o.mt+14)+'" text-anchor="'+(right?'end':'start')+'" style="fill:var(--fg);font-size:12px">GTR '+fmt(cur.GTR,2)+' · MRR '+fmt(cur.MRR,2)+' · NTR '+fmt(cur.NTR,2)+'</text>';
+    g += '<rect x="'+o.ml+'" y="'+o.mt+'" width="'+(o.W-o.ml-o.mr)+'" height="'+(o.H-o.mt-o.mb)+'" fill="transparent"/>';
+    $("c2").innerHTML = g;
+    $("c2")._f = {ml:o.ml, mr:o.mr, W:o.W, x0:o.x0, x1:o.x1};
+  }
+
+  function drawC3(S,G,soil,s400){
+    var xmax = Math.max(60, Math.ceil(G.pc*1.15/20)*20);
+    var o = {W:320,H:320,ml:46,mr:14,mt:14,mb:44,x0:0,x1:xmax,y0:0,y1:0.8,
+      xt:[0,xmax/4,xmax/2,xmax*3/4,xmax].map(function(v){return Math.round(v)}),yt:[0,0.2,0.4,0.6,0.8],
+      fy:function(t){return t.toFixed(1)},xl:"Vertical stress (kPa)",yl:"Depth (m)"};
+    var f = frame(o);
+    var ys = function(z){return o.mt + (z/0.8)*(o.H-o.mt-o.mb)};
+    f.ys = ys;
+    var g = axes(o,f);
+    [50,100].forEach(function(t,i){
+      if (t<=xmax){
+        g += '<line x1="'+f.xs(t)+'" x2="'+f.xs(t)+'" y1="'+o.mt+'" y2="'+(o.H-o.mb)+'" stroke="'+(i?'var(--crit)':'var(--warn)')+'" stroke-dasharray="4 3"/>';
+        g += '<text x="'+(f.xs(t)+4)+'" y="'+(o.mt+11)+'" style="fill:'+(i?'var(--crit)':'var(--warn)')+'">'+t+'</text>';
+      }
+    });
+    var pts=[]; for (var z=0.005; z<=0.8; z+=0.01) pts.push([f.xs(stressAt(soil,S,G,z)), ys(z)]);
+    pts.unshift([f.xs(G.pc), ys(0)]);
+    g += '<path d="'+path(pts)+' L'+f.xs(0)+' '+ys(0.8)+' L'+f.xs(0)+' '+ys(0)+' Z" fill="var(--accent)" fill-opacity="0.12"/>';
+    g += '<path d="'+path(pts)+'" fill="none" stroke="var(--accent)" stroke-width="2.6"/>';
+    g += '<circle cx="'+f.xs(s400)+'" cy="'+ys(0.4)+'" r="5" fill="var(--surface)" stroke="var(--fg)" stroke-width="2.4"/>';
+    var lx = f.xs(s400)+10, anchor="start";
+    if (lx > 230){ lx = f.xs(s400)-10; anchor="end"; }
+    g += '<text x="'+lx+'" y="'+(ys(0.4)+4)+'" text-anchor="'+anchor+'" style="fill:var(--fg)">'+fmt(s400,0)+' kPa</text>';
+    $("c3").innerHTML = g;
+    $("c3note").textContent = "Dashed lines mark 50 and 100 kPa. Surface stress equals the mean contact pressure of "+fmt(G.pc,0)+" kPa.";
+  }
+
+  function drawC4(S,G,soil,sink){
+    var W=320, top=46, depthPx=78;
+    var zmm = sink*1000, shown = Math.min(zmm,150), dpx = shown/150*depthPx;
+    var g = '';
+    g += '<rect x="0" y="'+top+'" width="'+W+'" height="'+(150-top)+'" fill="'+soil.color+'" fill-opacity="0.22"/>';
+    for (var i=0;i<=3;i++){
+      var yy = top + i*depthPx/3;
+      g += '<line x1="0" x2="'+W+'" y1="'+yy+'" y2="'+yy+'" stroke="var(--grid)"/>';
+      g += '<text x="'+(W-6)+'" y="'+(yy-3)+'" text-anchor="end">'+(i*50)+' mm</text>';
+    }
+    g += '<line x1="0" x2="'+W+'" y1="'+top+'" y2="'+top+'" stroke="var(--muted)" stroke-width="1.5"/>';
+    g += '<rect x="'+(W/2-52)+'" y="'+(top-30+dpx)+'" width="104" height="30" rx="4" fill="var(--fg)" fill-opacity="0.85"/>';
+    g += '<text x="'+(W/2)+'" y="'+(top-11+dpx)+'" text-anchor="middle" style="fill:var(--surface);font-size:11px">tyre, b = '+fmt(G.b*1000,0)+' mm</text>';
+    g += '<line x1="'+(W/2+66)+'" x2="'+(W/2+66)+'" y1="'+top+'" y2="'+(top+dpx)+'" stroke="var(--red)" stroke-width="2"/>';
+    g += '<text x="'+(W/2+74)+'" y="'+(top+Math.max(dpx,10)/2+4)+'" style="fill:var(--red);font-size:12px">'+fmt(zmm,0)+' mm</text>';
+    $("c4").innerHTML = g;
+    $("c4note").textContent = "Depth window is 150 mm"+(zmm>150?"; this rut is deeper than the window.":".");
+  }
+
+  function drawTable(S,G,soil){
+    var rows = '<tr><th>Surface</th><th>CI (kPa)</th><th>s<sub>opt</sub> (%)</th><th>TE<sub>max</sub> (%)</th></tr>';
+    Object.keys(CONDS).forEach(function(k){
+      var s = soilFor(S,k), op = optimum(s,S,G), sel = k===S.cond;
+      rows += '<tr'+(sel?' style="font-weight:600"':'')+'><td><span class="dot" style="display:inline-block;background:'+s.color+';margin-right:6px"></span>'+s.name+'</td><td>'+fmt(ciOf(s,S.moist),0)+'</td><td>'+fmt(op.s,1)+'</td><td>'+fmt(op.te*100,1)+'</td></tr>';
+    });
+    rows += '<tr><td colspan="4" style="text-align:left;color:var(--muted);white-space:normal">Derived from texture: n = '+fmt(soil.n,2)+', k<sub>c</sub> = '+fmt(soil.kc,1)+' kN/m<sup>n+1</sup>, k<sub>φ</sub> = '+fmt(soil.kphi,0)+' kN/m<sup>n+2</sup></td></tr>';
+    $("ptable").innerHTML = rows;
+  }
+
+  /* ---------- interaction ---------- */
+  var quick = $("quick");
+  quick.innerHTML = CLASSES.map(function(c,i){return '<option value="'+i+'">'+c.n+'</option>'}).join("");
+  quick.addEventListener("change", function(){
+    var t = CLASSES[+quick.value].t;
+    $("sand").value = t[0]; $("silt").value = t[1]; $("clay").value = t[2];
+    update();
+  });
+  ["sand","silt","clay"].forEach(function(k){
+    $(k).addEventListener("input", function(){ setComp(k, +$(k).value); update(); });
+  });
+  ["moist","load","infl","slip","speed","tyre"].forEach(function(k){ $(k).addEventListener("input", update); });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="cond"]'), function(r){ r.addEventListener("change", update); });
+  Array.prototype.forEach.call(document.querySelectorAll("#scen .chip"), function(b){
+    b.addEventListener("click", function(){ writeState(scenarioState(b.getAttribute("data-s"))); });
+  });
+  $("reset").addEventListener("click", function(){ writeState(DEFAULTS); });
+
+  // cone index profile inputs
+  $("ci-grid").innerHTML = CI_DEPTHS.map(function(d,i){
+    return '<label for="ci'+i+'">'+d+' cm<input type="number" id="ci'+i+'" min="0" step="50" inputmode="numeric" placeholder="kPa"></label>';
+  }).join("");
+  function ciBlank(){ return CI_IDS.every(function(id){return $(id).value===""}); }
+  function fillCIFromModel(){
+    var S = readState();
+    var sm = soilFor(Object.assign({}, S, {useCI:false}), S.cond), e = ciOf(sm, S.moist);
+    CI_DEPTHS.forEach(function(d,i){ $("ci"+i).value = Math.round(modelProfileAt(e,S.cond,d)/10)*10; });
+  }
+  CI_IDS.forEach(function(id){ $(id).addEventListener("input", update); });
+  $("useci").addEventListener("change", function(){
+    $("ci-inputs").hidden = !$("useci").checked;
+    if ($("useci").checked && ciBlank()) fillCIFromModel();
+    update();
+  });
+  $("ci-fill").addEventListener("click", function(){ fillCIFromModel(); update(); });
+  $("ci-clear").addEventListener("click", function(){ CI_IDS.forEach(function(id){ $(id).value=""; }); update(); });
+
+  // drag on triangle
+  (function(){
+    var svg = $("tri"), dragging = false;
+    function setFromEvent(e){
+      var r = svg.getBoundingClientRect();
+      var x = (e.clientX - r.left)/r.width*TRI.W, y = (e.clientY - r.top)/r.height*TRI.H;
+      var H = TRI.BL[1]-TRI.TOP[1];
+      var cl = clamp((TRI.BL[1]-y)/H*100, 0, 100);
+      var xl = TRI.BL[0] + (TRI.TOP[0]-TRI.BL[0])*cl/100;
+      var xr = TRI.BR[0] + (TRI.TOP[0]-TRI.BR[0])*cl/100;
+      var frac = xr>xl ? clamp((x-xl)/(xr-xl),0,1) : 0;
+      var clay = Math.round(cl), silt = Math.round((100-cl)*frac);
+      silt = Math.min(silt, 100-clay);
+      $("clay").value = clay; $("silt").value = silt; $("sand").value = 100-clay-silt;
+      update();
+    }
+    svg.addEventListener("pointerdown", function(e){ dragging = true; try{svg.setPointerCapture(e.pointerId)}catch(_){} setFromEvent(e); });
+    svg.addEventListener("pointermove", function(e){ if (dragging) setFromEvent(e); });
+    svg.addEventListener("pointerup", function(){ dragging = false; });
+    svg.addEventListener("pointercancel", function(){ dragging = false; });
+  })();
+
+  // drag on slip charts
+  ["c1","c2"].forEach(function(id){
+    var svg = $(id), dragging = false;
+    function setFromEvent(e){
+      var r = svg.getBoundingClientRect(), f = svg._f;
+      var vx = (e.clientX - r.left)/r.width*f.W;
+      var s = f.x0 + (vx - f.ml)/(f.W - f.ml - f.mr)*(f.x1 - f.x0);
+      $("slip").value = clamp(Math.round(s*2)/2, 0, 30);
+      update();
+    }
+    svg.classList.add("drag");
+    svg.addEventListener("pointerdown", function(e){ dragging = true; try{svg.setPointerCapture(e.pointerId)}catch(_){} setFromEvent(e); });
+    svg.addEventListener("pointermove", function(e){ if (dragging) setFromEvent(e); });
+    svg.addEventListener("pointerup", function(){ dragging = false; });
+    svg.addEventListener("pointercancel", function(){ dragging = false; });
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
